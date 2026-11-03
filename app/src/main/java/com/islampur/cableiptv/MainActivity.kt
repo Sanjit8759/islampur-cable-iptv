@@ -4,13 +4,12 @@ package com.islampur.cableiptv
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.view.ViewGroup
+import android.view.View
 import android.widget.*
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -25,11 +24,15 @@ class MainActivity : AppCompatActivity() {
 
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
+    private lateinit var playerFrame: FrameLayout
     private lateinit var channelList: LinearLayout
     private lateinit var status: TextView
+    private lateinit var title: TextView
+    private lateinit var heading: TextView
+    private lateinit var scroll: ScrollView
+    private lateinit var fullscreenButton: Button
 
-    private val navy = Color.rgb(12, 20, 38)
-    private val blue = Color.rgb(25, 85, 160)
+    private var fullscreen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,15 +43,15 @@ class MainActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(navy)
+            setBackgroundColor(Color.rgb(12, 20, 38))
         }
 
-        val title = TextView(this).apply {
+        title = TextView(this).apply {
             text = "ISLAMPUR CABLE IPTV"
             textSize = 25f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setPadding(10, 12, 10, 12)
+            setPadding(8, 12, 8, 12)
             setTypeface(null, Typeface.BOLD)
         }
 
@@ -63,11 +66,37 @@ class MainActivity : AppCompatActivity() {
         playerView = PlayerView(this).apply {
             useController = true
             setBackgroundColor(Color.BLACK)
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            setShutterBackgroundColor(Color.BLACK)
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
 
-        val heading = TextView(this).apply {
+        playerFrame = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            addView(
+                playerView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+
+        fullscreenButton = Button(this).apply {
+            text = "FULL SCREEN"
+            textSize = 12f
+            isAllCaps = false
+            setOnClickListener {
+                toggleFullscreen(root)
+            }
+        }
+
+        val buttonParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            45,
+            Gravity.BOTTOM or Gravity.END
+        )
+        playerFrame.addView(fullscreenButton, buttonParams)
+
+        heading = TextView(this).apply {
             text = "LIVE TV CHANNELS"
             textSize = 20f
             setTextColor(Color.WHITE)
@@ -80,8 +109,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(8, 4, 8, 8)
         }
 
-        val scroll = ScrollView(this).apply {
-            isFillViewport = true
+        scroll = ScrollView(this).apply {
             addView(channelList)
         }
 
@@ -89,10 +117,10 @@ class MainActivity : AppCompatActivity() {
         root.addView(status)
 
         root.addView(
-            playerView,
+            playerFrame,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                280
+                260
             )
         )
 
@@ -115,20 +143,54 @@ class MainActivity : AppCompatActivity() {
         player?.addListener(object : Player.Listener {
 
             override fun onPlayerError(error: PlaybackException) {
-                status.text = "Channel playback failed"
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    status.text = "Playing Live TV"
-                }
+                status.text = "Stream error - Try another channel"
             }
         })
 
         loadPlaylist()
     }
 
+    private fun toggleFullscreen(root: LinearLayout) {
+
+        fullscreen = !fullscreen
+
+        if (fullscreen) {
+            title.visibility = View.GONE
+            status.visibility = View.GONE
+            heading.visibility = View.GONE
+            scroll.visibility = View.GONE
+
+            playerFrame.layoutParams =
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
+
+            fullscreenButton.text = "EXIT FULL SCREEN"
+
+        } else {
+            title.visibility = View.VISIBLE
+            status.visibility = View.VISIBLE
+            heading.visibility = View.VISIBLE
+            scroll.visibility = View.VISIBLE
+
+            playerFrame.layoutParams =
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    260
+                )
+
+            fullscreenButton.text = "FULL SCREEN"
+        }
+
+        playerFrame.requestLayout()
+    }
+
     private fun loadPlaylist() {
+
+        status.text = "Loading playlist..."
+
         Thread {
             try {
                 val connection =
@@ -144,18 +206,33 @@ class MainActivity : AppCompatActivity() {
                 val channels = mutableListOf<Pair<String, String>>()
 
                 connection.inputStream.bufferedReader().use { reader ->
+
                     var channelName = ""
 
                     reader.forEachLine { line ->
+
                         val item = line.trim()
 
                         if (item.startsWith("#EXTINF")) {
-                            channelName =
-                                item.substringAfter(",", "").trim()
+
+                            val commaName = item.substringAfter(
+                                ",",
+                                ""
+                            ).trim()
+
+                            val tvgName = Regex(
+                                """tvg-name="([^"]*)""""
+                            ).find(item)?.groupValues?.get(1)
+
+                            channelName = commaName.ifBlank {
+                                tvgName ?: ""
+                            }
+
                         } else if (
                             item.startsWith("http://") ||
                             item.startsWith("https://")
                         ) {
+
                             val name = channelName.ifBlank {
                                 "Channel ${channels.size + 1}"
                             }
@@ -169,6 +246,7 @@ class MainActivity : AppCompatActivity() {
                 connection.disconnect()
 
                 runOnUiThread {
+
                     channelList.removeAllViews()
 
                     if (channels.isEmpty()) {
@@ -180,46 +258,45 @@ class MainActivity : AppCompatActivity() {
 
                     channels.forEachIndexed { index, channel ->
 
-                        val buttonBackground = GradientDrawable().apply {
-                            setColor(blue)
-                            cornerRadius = 12f
-                        }
-
                         val button = Button(this).apply {
-                            text = channel.first
-                            textSize = 16f
+
+                            text = "${index + 1}. ${channel.first}"
+                            textSize = 15f
                             isAllCaps = false
                             setTextColor(Color.WHITE)
-                            background = buttonBackground
+                            setBackgroundColor(
+                                Color.rgb(25, 85, 160)
+                            )
+
                             isFocusable = true
-                            isFocusableInTouchMode = true
+                            isClickable = true
 
                             setOnClickListener {
                                 playChannel(channel.second)
-                                status.text = "Loading: ${channel.first}"
+                                status.text =
+                                    "Selected: ${channel.first}"
                             }
                         }
 
                         val params = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            56
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            58
                         )
 
                         params.setMargins(5, 5, 5, 5)
 
                         channelList.addView(button, params)
                     }
-
-                    channelList.getChildAt(0)?.requestFocus()
                 }
 
             } catch (e: Exception) {
+
                 runOnUiThread {
                     status.text = "Playlist loading failed"
 
                     Toast.makeText(
                         this,
-                        "Internet or Playlist error",
+                        "Internet or playlist error",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -228,19 +305,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playChannel(streamUrl: String) {
+
         try {
-            val mediaItem = MediaItem.Builder()
-                .setUri(streamUrl)
-                .setMimeType(MimeTypes.APPLICATION_M3U8)
-                .build()
+            val mediaItem = MediaItem.fromUri(streamUrl)
 
             player?.stop()
+            player?.clearMediaItems()
             player?.setMediaItem(mediaItem)
             player?.prepare()
             player?.play()
 
         } catch (e: Exception) {
-            status.text = "Unable to play channel"
+            status.text = "Unable to play this channel"
+        }
+    }
+
+    override fun onBackPressed() {
+        if (fullscreen) {
+            val root = playerFrame.parent as? LinearLayout
+            if (root != null) {
+                toggleFullscreen(root)
+            }
+        } else {
+            super.onBackPressed()
         }
     }
 
