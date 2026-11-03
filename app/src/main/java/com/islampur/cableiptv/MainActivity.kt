@@ -31,6 +31,8 @@ class MainActivity : AppCompatActivity() {
 
     private val channels = mutableListOf<Channel>()
     private var selectedGroup = "ALL"
+    private var currentIndex = 0
+    private var isFullscreen = false
 
     private var player: ExoPlayer? = null
 
@@ -42,11 +44,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var title: TextView
     private lateinit var heading: TextView
-    private lateinit var fullButton: Button
     private lateinit var categoryBar: LinearLayout
     private lateinit var categoryScroll: HorizontalScrollView
-
-    private var isFullscreen = false
+    private lateinit var fullButton: Button
+    private lateinit var previousButton: Button
+    private lateinit var nextButton: Button
+    private lateinit var listButton: Button
+    private lateinit var controlBar: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,10 +66,10 @@ class MainActivity : AppCompatActivity() {
 
         title = TextView(this).apply {
             text = "ISLAMPUR CABLE IPTV"
-            textSize = 25f
+            textSize = 24f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setPadding(10, 12, 10, 12)
+            setPadding(8, 10, 8, 10)
             setTypeface(null, Typeface.BOLD)
         }
 
@@ -74,7 +78,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
-            setPadding(8, 10, 8, 10)
+            setPadding(8, 8, 8, 8)
         }
 
         playerView = PlayerView(this).apply {
@@ -85,6 +89,7 @@ class MainActivity : AppCompatActivity() {
 
         playerFrame = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
+
             addView(
                 playerView,
                 FrameLayout.LayoutParams(
@@ -94,20 +99,42 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        fullButton = Button(this).apply {
-            text = "FULL SCREEN"
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(25, 85, 160))
-            setOnClickListener { toggleFullscreen() }
+        controlBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(4, 5, 4, 5)
+            setBackgroundColor(Color.rgb(12, 20, 38))
         }
 
-        heading = TextView(this).apply {
-            text = "LIVE TV CHANNELS"
-            textSize = 20f
-            setTextColor(Color.WHITE)
-            setPadding(12, 10, 12, 10)
-            setTypeface(null, Typeface.BOLD)
+        previousButton = makeButton("◀ PREVIOUS") {
+            playPrevious()
+        }
+
+        nextButton = makeButton("NEXT ▶") {
+            playNext()
+        }
+
+        listButton = makeButton("CHANNEL LIST") {
+            showChannelList()
+        }
+
+        controlBar.addView(
+            previousButton,
+            LinearLayout.LayoutParams(0, 55, 1f)
+        )
+
+        controlBar.addView(
+            nextButton,
+            LinearLayout.LayoutParams(0, 55, 1f)
+        )
+
+        controlBar.addView(
+            listButton,
+            LinearLayout.LayoutParams(0, 55, 1f)
+        )
+
+        fullButton = makeButton("FULL SCREEN") {
+            enterFullscreen()
         }
 
         categoryBar = LinearLayout(this).apply {
@@ -118,6 +145,14 @@ class MainActivity : AppCompatActivity() {
         categoryScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             addView(categoryBar)
+        }
+
+        heading = TextView(this).apply {
+            text = "LIVE TV CHANNELS"
+            textSize = 20f
+            setTextColor(Color.WHITE)
+            setPadding(12, 10, 12, 10)
+            setTypeface(null, Typeface.BOLD)
         }
 
         channelList = LinearLayout(this).apply {
@@ -140,14 +175,8 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        root.addView(
-            fullButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                52
-            )
-        )
-
+        root.addView(controlBar)
+        root.addView(fullButton)
         root.addView(categoryScroll)
         root.addView(heading)
 
@@ -173,7 +202,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) {
-                    status.text = "Playing Live TV"
+                    updateStatus()
                 }
             }
         })
@@ -181,55 +210,21 @@ class MainActivity : AppCompatActivity() {
         loadPlaylist()
     }
 
-    private fun toggleFullscreen() {
+    private fun makeButton(
+        label: String,
+        action: () -> Unit
+    ): Button {
 
-        isFullscreen = !isFullscreen
-
-        if (isFullscreen) {
-
-            title.visibility = View.GONE
-            status.visibility = View.GONE
-            heading.visibility = View.GONE
-            scroll.visibility = View.GONE
-            categoryScroll.visibility = View.GONE
-
-            playerFrame.layoutParams =
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
-
-            fullButton.text = "EXIT FULL SCREEN"
-
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility =
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-
-        } else {
-
-            title.visibility = View.VISIBLE
-            status.visibility = View.VISIBLE
-            heading.visibility = View.VISIBLE
-            scroll.visibility = View.VISIBLE
-            categoryScroll.visibility = View.VISIBLE
-
-            playerFrame.layoutParams =
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    260
-                )
-
-            fullButton.text = "FULL SCREEN"
-
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility =
-                View.SYSTEM_UI_FLAG_VISIBLE
+        return Button(this).apply {
+            text = label
+            textSize = 12f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
+            setBackgroundColor(Color.rgb(25, 85, 160))
+            isFocusable = true
+            setOnClickListener { action() }
         }
-
-        playerFrame.requestLayout()
     }
 
     private fun loadPlaylist() {
@@ -311,10 +306,13 @@ class MainActivity : AppCompatActivity() {
                         return@runOnUiThread
                     }
 
-                    status.text = "Total Channels: ${channels.size}"
-
                     showCategories()
                     showChannels()
+
+                    currentIndex = 0
+                    playChannelAt(currentIndex)
+
+                    enterFullscreen()
                 }
 
             } catch (e: Exception) {
@@ -346,40 +344,20 @@ class MainActivity : AppCompatActivity() {
 
         categories.forEach { group ->
 
-            val button = TextView(this).apply {
+            val button = makeButton(group.uppercase()) {
 
-                text = group.uppercase()
-                textSize = 14f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                setPadding(18, 12, 18, 12)
-                setTypeface(null, Typeface.BOLD)
-
-                setBackgroundColor(
-                    if (selectedGroup == group) {
-                        Color.rgb(0, 130, 210)
-                    } else {
-                        Color.rgb(35, 65, 105)
-                    }
-                )
-
-                isFocusable = true
-                isClickable = true
-
-                setOnClickListener {
-                    selectedGroup = group
-                    showCategories()
-                    showChannels()
-                }
+                selectedGroup = group
+                showCategories()
+                showChannels()
             }
 
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                48
+            categoryBar.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    48
+                )
             )
-
-            params.setMargins(4, 3, 4, 3)
-            categoryBar.addView(button, params)
         }
     }
 
@@ -398,7 +376,9 @@ class MainActivity : AppCompatActivity() {
         heading.text =
             "${selectedGroup.uppercase()} CHANNELS (${filtered.size})"
 
-        filtered.forEachIndexed { index, channel ->
+        filtered.forEach { channel ->
+
+            val channelIndex = channels.indexOf(channel)
 
             val background = GradientDrawable().apply {
                 setColor(Color.rgb(25, 85, 160))
@@ -407,8 +387,8 @@ class MainActivity : AppCompatActivity() {
 
             val channelButton = TextView(this).apply {
 
-                text = "${index + 1}. ${channel.name}"
-                textSize = 17f
+                text = "${channelIndex + 1}. ${channel.name}"
+                textSize = 16f
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(18, 8, 12, 8)
@@ -419,9 +399,9 @@ class MainActivity : AppCompatActivity() {
                 isClickable = true
 
                 setOnClickListener {
-
-                    status.text = "Selected: ${channel.name}"
-                    playChannel(channel.url)
+                    currentIndex = channelIndex
+                    playChannelAt(currentIndex)
+                    enterFullscreen()
                 }
             }
 
@@ -436,29 +416,127 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun playChannel(streamUrl: String) {
+    private fun playChannelAt(index: Int) {
+
+        if (channels.isEmpty()) return
+
+        if (index !in channels.indices) return
+
+        currentIndex = index
+
+        val channel = channels[currentIndex]
+
+        status.text = "Loading: ${channel.name}"
 
         try {
 
             player?.stop()
             player?.clearMediaItems()
 
-            val mediaItem = MediaItem.fromUri(streamUrl)
+            val mediaItem = MediaItem.fromUri(channel.url)
 
             player?.setMediaItem(mediaItem)
             player?.prepare()
             player?.play()
+
+            updateStatus()
 
         } catch (e: Exception) {
             status.text = "Unable to Play Channel"
         }
     }
 
+    private fun updateStatus() {
+
+        if (channels.isEmpty()) return
+
+        status.text =
+            "Playing: ${channels[currentIndex].name} (${currentIndex + 1}/${channels.size})"
+    }
+
+    private fun playNext() {
+
+        if (channels.isEmpty()) return
+
+        val nextIndex =
+            (currentIndex + 1) % channels.size
+
+        playChannelAt(nextIndex)
+    }
+
+    private fun playPrevious() {
+
+        if (channels.isEmpty()) return
+
+        val previousIndex =
+            if (currentIndex == 0) {
+                channels.size - 1
+            } else {
+                currentIndex - 1
+            }
+
+        playChannelAt(previousIndex)
+    }
+
+    private fun enterFullscreen() {
+
+        isFullscreen = true
+
+        title.visibility = View.GONE
+        status.visibility = View.GONE
+        fullButton.visibility = View.GONE
+        categoryScroll.visibility = View.GONE
+        heading.visibility = View.GONE
+        scroll.visibility = View.GONE
+
+        playerFrame.layoutParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+
+        controlBar.visibility = View.VISIBLE
+
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+
+        root.requestLayout()
+    }
+
+    private fun showChannelList() {
+
+        isFullscreen = false
+
+        title.visibility = View.VISIBLE
+        status.visibility = View.VISIBLE
+        fullButton.visibility = View.VISIBLE
+        categoryScroll.visibility = View.VISIBLE
+        heading.visibility = View.VISIBLE
+        scroll.visibility = View.VISIBLE
+        controlBar.visibility = View.GONE
+
+        playerFrame.layoutParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                260
+            )
+
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_VISIBLE
+
+        root.requestLayout()
+    }
+
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
 
         if (isFullscreen) {
-            toggleFullscreen()
+            showChannelList()
         } else {
             super.onBackPressed()
         }
