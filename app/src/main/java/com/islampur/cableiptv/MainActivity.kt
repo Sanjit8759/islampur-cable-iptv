@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity() {
 
         playerFrame = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
+
             addView(
                 playerView,
                 FrameLayout.LayoutParams(
@@ -84,20 +85,15 @@ class MainActivity : AppCompatActivity() {
 
         fullButton = Button(this).apply {
             text = "FULL SCREEN"
+            textSize = 15f
             isAllCaps = false
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(25, 85, 160))
+
             setOnClickListener {
                 toggleFullscreen()
             }
         }
-
-        playerFrame.addView(
-            fullButton,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                48,
-                Gravity.BOTTOM or Gravity.END
-            )
-        )
 
         heading = TextView(this).apply {
             text = "LIVE TV CHANNELS"
@@ -124,6 +120,14 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 260
+            )
+        )
+
+        root.addView(
+            fullButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                55
             )
         )
 
@@ -179,6 +183,7 @@ class MainActivity : AppCompatActivity() {
 
             fullButton.text = "EXIT FULL SCREEN"
 
+            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
                 (View.SYSTEM_UI_FLAG_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -199,6 +204,7 @@ class MainActivity : AppCompatActivity() {
 
             fullButton.text = "FULL SCREEN"
 
+            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
                 View.SYSTEM_UI_FLAG_VISIBLE
         }
@@ -209,6 +215,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadPlaylist() {
 
         Thread {
+
             try {
 
                 val connection =
@@ -284,7 +291,7 @@ class MainActivity : AppCompatActivity() {
                         val channelButton = TextView(this).apply {
 
                             text = "${index + 1}. ${channel.first}"
-                            textSize = 17f
+                            textSize = 16f
                             setTextColor(Color.WHITE)
                             gravity = Gravity.CENTER_VERTICAL
                             setPadding(18, 8, 12, 8)
@@ -329,6 +336,7 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
             }
+
         }.start()
     }
 
