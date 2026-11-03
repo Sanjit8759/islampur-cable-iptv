@@ -23,7 +23,17 @@ class MainActivity : AppCompatActivity() {
 
     private val playlistUrl = "https://m3u.ch/orKl0V.m3u"
 
+    data class Channel(
+        val name: String,
+        val url: String,
+        val group: String
+    )
+
+    private val channels = mutableListOf<Channel>()
+    private var selectedGroup = "ALL"
+
     private var player: ExoPlayer? = null
+
     private lateinit var root: LinearLayout
     private lateinit var playerView: PlayerView
     private lateinit var playerFrame: FrameLayout
@@ -33,6 +43,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var title: TextView
     private lateinit var heading: TextView
     private lateinit var fullButton: Button
+    private lateinit var categoryBar: LinearLayout
+    private lateinit var categoryScroll: HorizontalScrollView
 
     private var isFullscreen = false
 
@@ -73,7 +85,6 @@ class MainActivity : AppCompatActivity() {
 
         playerFrame = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
-
             addView(
                 playerView,
                 FrameLayout.LayoutParams(
@@ -85,22 +96,28 @@ class MainActivity : AppCompatActivity() {
 
         fullButton = Button(this).apply {
             text = "FULL SCREEN"
-            textSize = 15f
             isAllCaps = false
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.rgb(25, 85, 160))
-
-            setOnClickListener {
-                toggleFullscreen()
-            }
+            setOnClickListener { toggleFullscreen() }
         }
 
         heading = TextView(this).apply {
             text = "LIVE TV CHANNELS"
             textSize = 20f
             setTextColor(Color.WHITE)
-            setPadding(12, 12, 12, 12)
+            setPadding(12, 10, 12, 10)
             setTypeface(null, Typeface.BOLD)
+        }
+
+        categoryBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(6, 5, 6, 5)
+        }
+
+        categoryScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(categoryBar)
         }
 
         channelList = LinearLayout(this).apply {
@@ -127,10 +144,11 @@ class MainActivity : AppCompatActivity() {
             fullButton,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                55
+                52
             )
         )
 
+        root.addView(categoryScroll)
         root.addView(heading)
 
         root.addView(
@@ -173,6 +191,7 @@ class MainActivity : AppCompatActivity() {
             status.visibility = View.GONE
             heading.visibility = View.GONE
             scroll.visibility = View.GONE
+            categoryScroll.visibility = View.GONE
 
             playerFrame.layoutParams =
                 LinearLayout.LayoutParams(
@@ -185,9 +204,9 @@ class MainActivity : AppCompatActivity() {
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
-                (View.SYSTEM_UI_FLAG_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
         } else {
 
@@ -195,6 +214,7 @@ class MainActivity : AppCompatActivity() {
             status.visibility = View.VISIBLE
             heading.visibility = View.VISIBLE
             scroll.visibility = View.VISIBLE
+            categoryScroll.visibility = View.VISIBLE
 
             playerFrame.layoutParams =
                 LinearLayout.LayoutParams(
@@ -236,12 +256,12 @@ class MainActivity : AppCompatActivity() {
                     throw Exception("HTTP ${connection.responseCode}")
                 }
 
-                val channels =
-                    mutableListOf<Pair<String, String>>()
+                channels.clear()
+
+                var channelName = ""
+                var channelGroup = "Other"
 
                 connection.inputStream.bufferedReader().use { reader ->
-
-                    var channelName = ""
 
                     reader.forEachLine { line ->
 
@@ -252,6 +272,17 @@ class MainActivity : AppCompatActivity() {
                             channelName =
                                 item.substringAfter(",", "").trim()
 
+                            val groupMatch = Regex(
+                                "group-title=\"([^\"]*)\"",
+                                RegexOption.IGNORE_CASE
+                            ).find(item)
+
+                            channelGroup =
+                                groupMatch?.groupValues?.get(1)
+                                    ?.trim()
+                                    ?.ifBlank { "Other" }
+                                    ?: "Other"
+
                         } else if (
                             item.startsWith("http://") ||
                             item.startsWith("https://")
@@ -261,8 +292,12 @@ class MainActivity : AppCompatActivity() {
                                 "Channel ${channels.size + 1}"
                             }
 
-                            channels.add(Pair(name, item))
+                            channels.add(
+                                Channel(name, item, channelGroup)
+                            )
+
                             channelName = ""
+                            channelGroup = "Other"
                         }
                     }
                 }
@@ -271,57 +306,15 @@ class MainActivity : AppCompatActivity() {
 
                 runOnUiThread {
 
-                    channelList.removeAllViews()
-
                     if (channels.isEmpty()) {
                         status.text = "No Channels Found"
                         return@runOnUiThread
                     }
 
-                    status.text =
-                        "Total Channels: ${channels.size}"
+                    status.text = "Total Channels: ${channels.size}"
 
-                    channels.forEachIndexed { index, channel ->
-
-                        val background = GradientDrawable().apply {
-                            setColor(Color.rgb(25, 85, 160))
-                            cornerRadius = 12f
-                        }
-
-                        val channelButton = TextView(this).apply {
-
-                            text = "${index + 1}. ${channel.first}"
-                            textSize = 16f
-                            setTextColor(Color.WHITE)
-                            gravity = Gravity.CENTER_VERTICAL
-                            setPadding(18, 8, 12, 8)
-                            setTypeface(null, Typeface.BOLD)
-                            setBackground(background)
-
-                            isFocusable = true
-                            isClickable = true
-
-                            setOnClickListener {
-
-                                status.text =
-                                    "Selected: ${channel.first}"
-
-                                playChannel(channel.second)
-                            }
-                        }
-
-                        val params = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            58
-                        )
-
-                        params.setMargins(5, 5, 5, 5)
-
-                        channelList.addView(
-                            channelButton,
-                            params
-                        )
-                    }
+                    showCategories()
+                    showChannels()
                 }
 
             } catch (e: Exception) {
@@ -340,9 +333,113 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun showCategories() {
+
+        categoryBar.removeAllViews()
+
+        val groups = channels
+            .map { it.group }
+            .distinct()
+            .sorted()
+
+        val categories = listOf("ALL") + groups
+
+        categories.forEach { group ->
+
+            val button = TextView(this).apply {
+
+                text = group.uppercase()
+                textSize = 14f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                setPadding(18, 12, 18, 12)
+                setTypeface(null, Typeface.BOLD)
+
+                setBackgroundColor(
+                    if (selectedGroup == group) {
+                        Color.rgb(0, 130, 210)
+                    } else {
+                        Color.rgb(35, 65, 105)
+                    }
+                )
+
+                isFocusable = true
+                isClickable = true
+
+                setOnClickListener {
+                    selectedGroup = group
+                    showCategories()
+                    showChannels()
+                }
+            }
+
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                48
+            )
+
+            params.setMargins(4, 3, 4, 3)
+            categoryBar.addView(button, params)
+        }
+    }
+
+    private fun showChannels() {
+
+        channelList.removeAllViews()
+
+        val filtered = if (selectedGroup == "ALL") {
+            channels
+        } else {
+            channels.filter {
+                it.group.equals(selectedGroup, ignoreCase = true)
+            }
+        }
+
+        heading.text =
+            "${selectedGroup.uppercase()} CHANNELS (${filtered.size})"
+
+        filtered.forEachIndexed { index, channel ->
+
+            val background = GradientDrawable().apply {
+                setColor(Color.rgb(25, 85, 160))
+                cornerRadius = 12f
+            }
+
+            val channelButton = TextView(this).apply {
+
+                text = "${index + 1}. ${channel.name}"
+                textSize = 17f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(18, 8, 12, 8)
+                setTypeface(null, Typeface.BOLD)
+                setBackground(background)
+
+                isFocusable = true
+                isClickable = true
+
+                setOnClickListener {
+
+                    status.text = "Selected: ${channel.name}"
+                    playChannel(channel.url)
+                }
+            }
+
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                58
+            )
+
+            params.setMargins(5, 5, 5, 5)
+
+            channelList.addView(channelButton, params)
+        }
+    }
+
     private fun playChannel(streamUrl: String) {
 
         try {
+
             player?.stop()
             player?.clearMediaItems()
 
