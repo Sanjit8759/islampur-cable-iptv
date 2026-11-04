@@ -1,3 +1,4 @@
+
 package com.islampur.cableiptv
 
 import android.os.Bundle
@@ -39,7 +40,9 @@ class MainActivity : AppCompatActivity() {
     private var selectedGroup = "ALL"
     private var isFullscreen = false
     private var showingChannels = false
-    private var currentFrameMode = "FIT"
+
+    // Default: Full Screen Stretch
+    private var currentFrameMode = "STRETCH"
 
     private var player: ExoPlayer? = null
 
@@ -150,6 +153,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
+        // Header
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -193,7 +197,9 @@ class MainActivity : AppCompatActivity() {
         playerView = PlayerView(this).apply {
             useController = false
             setBackgroundColor(Color.BLACK)
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+            // Default Full Screen Stretch
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
         }
 
         playerFrame = FrameLayout(this).apply {
@@ -208,16 +214,12 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Two-line watermark inside video
+            // Transparent two-line watermark inside video
             val watermark = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
-                setPadding(dp(10), dp(6), dp(10), dp(6))
-
-                background = GradientDrawable().apply {
-                    setColor(Color.argb(190, 0, 0, 0))
-                    cornerRadius = dp(5).toFloat()
-                }
+                setPadding(dp(5), dp(3), dp(55), dp(10))
+                setBackgroundColor(Color.TRANSPARENT)
 
                 addView(TextView(this@MainActivity).apply {
                     text = "ISLAMPUR CABLE"
@@ -225,6 +227,8 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
+                    includeFontPadding = false
+                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
                 })
 
                 addView(TextView(this@MainActivity).apply {
@@ -233,17 +237,15 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
+                    includeFontPadding = false
+                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
                 })
             }
 
             val watermarkParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM or Gravity.END
-            )
-
-            watermarkParams.setMargins(
-                dp(5), dp(5), dp(55), dp(15)
+                Gravity.BOTTOM
             )
 
             addView(watermark, watermarkParams)
@@ -376,16 +378,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Video Frame Settings
     private fun showFrameSettings() {
 
         val options = arrayOf(
-            "FIT - সম্পূর্ণ ভিডিও",
-            "FILL - স্ক্রিন ভরে",
-            "ZOOM - ভিডিও বড় করে"
+            "FULL SCREEN STRETCH - কালো জায়গা থাকবে না, ভিডিও কাটবে না",
+            "FIT - সম্পূর্ণ ভিডিও, কালো জায়গা থাকতে পারে",
+            "ZOOM - স্ক্রিন ভরবে, কিছু অংশ কেটে যেতে পারে"
         )
 
         val selected = when (currentFrameMode) {
-            "FILL" -> 1
+            "FIT" -> 1
             "ZOOM" -> 2
             else -> 0
         }
@@ -396,15 +399,15 @@ class MainActivity : AppCompatActivity() {
 
                 when (which) {
                     0 -> {
-                        currentFrameMode = "FIT"
+                        currentFrameMode = "STRETCH"
                         playerView.resizeMode =
-                            AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            AspectRatioFrameLayout.RESIZE_MODE_FILL
                     }
 
                     1 -> {
-                        currentFrameMode = "FILL"
+                        currentFrameMode = "FIT"
                         playerView.resizeMode =
-                            AspectRatioFrameLayout.RESIZE_MODE_FILL
+                            AspectRatioFrameLayout.RESIZE_MODE_FIT
                     }
 
                     2 -> {
@@ -421,6 +424,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    // Load playlist
     private fun loadPlaylist() {
 
         status.text = "Loading Playlist..."
@@ -532,6 +536,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    // Show Groups
     private fun showGroups() {
 
         showingChannels = false
@@ -559,6 +564,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Show Channels
     private fun showChannels() {
 
         showingChannels = true
@@ -638,6 +644,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Play selected channel
     private fun playChannel(index: Int) {
 
         if (channels.isEmpty() || index !in channels.indices) {
@@ -695,6 +702,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Fullscreen on/off
     private fun toggleFullscreen() {
 
         isFullscreen = !isFullscreen
@@ -726,6 +734,7 @@ class MainActivity : AppCompatActivity() {
         playerFrame.requestLayout()
     }
 
+    // Back: fullscreen -> channels -> groups
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
 
