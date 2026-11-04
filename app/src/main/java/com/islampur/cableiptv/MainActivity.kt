@@ -40,8 +40,6 @@ class MainActivity : AppCompatActivity() {
     private var selectedGroup = "ALL"
     private var isFullscreen = false
     private var showingChannels = false
-
-    // Default: Full Screen Stretch
     private var currentFrameMode = "STRETCH"
 
     private var player: ExoPlayer? = null
@@ -49,6 +47,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var root: LinearLayout
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
+    private lateinit var header: LinearLayout
+    private lateinit var headerSettings: Button
     private lateinit var listTitle: TextView
     private lateinit var listScroll: ScrollView
     private lateinit var groupList: LinearLayout
@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Header
-        val header = LinearLayout(this).apply {
+        header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(Color.BLACK)
@@ -167,7 +167,7 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(0, dp(55), 1f)
         )
 
-        val headerSettings = makeButton("SETTINGS") {
+        headerSettings = makeButton("SETTINGS") {
             showFrameSettings()
         }
 
@@ -214,7 +214,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Transparent two-line watermark inside video
+            // Transparent two-line watermark
             val watermark = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
@@ -382,9 +382,9 @@ class MainActivity : AppCompatActivity() {
     private fun showFrameSettings() {
 
         val options = arrayOf(
-            "FULL SCREEN STRETCH - কালো জায়গা থাকবে না, ভিডিও কাটবে না",
-            "FIT - সম্পূর্ণ ভিডিও, কালো জায়গা থাকতে পারে",
-            "ZOOM - স্ক্রিন ভরবে, কিছু অংশ কেটে যেতে পারে"
+            "FULL SCREEN STRETCH - কালো জায়গা থাকবে না",
+            "FIT - সম্পূর্ণ ভিডিও",
+            "ZOOM - ভিডিও বড় করে"
         )
 
         val selected = when (currentFrameMode) {
@@ -702,16 +702,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Fullscreen on/off
+    // Fullscreen with reduced top black space
     private fun toggleFullscreen() {
 
         isFullscreen = !isFullscreen
+
+        val headerParams =
+            header.layoutParams as LinearLayout.LayoutParams
 
         if (isFullscreen) {
 
             leftPanel.visibility = View.GONE
             channelTitle.visibility = View.GONE
             status.visibility = View.GONE
+
+            // Reduce top area
+            headerParams.height = dp(42)
+            header.layoutParams = headerParams
+
+            headerSettings.layoutParams =
+                LinearLayout.LayoutParams(dp(125), dp(38))
+
+            // Small black space below video
+            val videoParams =
+                playerFrame.layoutParams as LinearLayout.LayoutParams
+
+            videoParams.bottomMargin = dp(12)
+            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -724,6 +741,18 @@ class MainActivity : AppCompatActivity() {
             leftPanel.visibility = View.VISIBLE
             channelTitle.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
+
+            headerParams.height = dp(55)
+            header.layoutParams = headerParams
+
+            headerSettings.layoutParams =
+                LinearLayout.LayoutParams(dp(125), dp(48))
+
+            val videoParams =
+                playerFrame.layoutParams as LinearLayout.LayoutParams
+
+            videoParams.bottomMargin = 0
+            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
