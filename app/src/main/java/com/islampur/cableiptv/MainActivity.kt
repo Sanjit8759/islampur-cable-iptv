@@ -31,6 +31,8 @@ import java.net.URL
 class MainActivity : AppCompatActivity() {
 
     private val playlistUrl = "https://m3u.ch/orKl0V.m3u"
+    private val backupPrefs = "IPTV_BACKUP"
+    private val backupKey = "saved_playlist"
 
     data class Channel(
         val name: String,
@@ -77,10 +79,10 @@ class MainActivity : AppCompatActivity() {
         setupGestures()
         createPlayer()
 
+        // Every app launch refreshes the playlist
         loadPlaylist()
     }
 
-    // Create improved ExoPlayer
     private fun createPlayer() {
 
         val httpFactory = DefaultHttpDataSource.Factory()
@@ -108,7 +110,8 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPlayerError(error: PlaybackException) {
 
-                val detail = error.cause?.message ?: error.message ?: "Unknown error"
+                val detail =
+                    error.cause?.message ?: error.message ?: "Unknown error"
 
                 Log.e(
                     "ISLAMPUR_IPTV",
@@ -116,8 +119,7 @@ class MainActivity : AppCompatActivity() {
                     error
                 )
 
-                status.text =
-                    "Error: ${error.errorCodeName}"
+                status.text = "Error: ${error.errorCodeName}"
 
                 Toast.makeText(
                     this@MainActivity,
@@ -142,7 +144,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     Player.STATE_IDLE -> {
-                        // Waiting for player
+                        // Waiting
                     }
                 }
             }
@@ -292,7 +294,6 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Watermark
             val watermark = LinearLayout(this@MainActivity).apply {
 
                 orientation = LinearLayout.VERTICAL
@@ -548,12 +549,64 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // Load playlist
+    // Convert M3U text into channels
+    private fun parsePlaylist(raw: String): MutableList<Channel> {
+
+        val result = mutableListOf<Channel>()
+
+        var name = ""
+        var group = "Other"
+
+        raw.lineSequence().forEach { line ->
+
+            val item = line.trim()
+
+            if (item.startsWith("#EXTINF", true)) {
+
+                name = item.substringAfter(",", "").trim()
+
+                val match = Regex(
+                    "group-title=\"([^\"]*)\"",
+                    RegexOption.IGNORE_CASE
+                ).find(item)
+
+                group = match?.groupValues?.get(1)
+                    ?.trim()
+                    ?.ifBlank { "Other" }
+                    ?: "Other"
+
+            } else if (
+                item.startsWith("http://", true) ||
+                item.startsWith("https://", true)
+            ) {
+
+                result.add(
+                    Channel(
+                        name.ifBlank {
+                            "Channel ${result.size + 1}"
+                        },
+                        item,
+                        group
+                    )
+                )
+
+                name = ""
+                group = "Other"
+            }
+        }
+
+        return result
+    }
+
+    // Automatic online refresh with offline backup
     private fun loadPlaylist() {
 
-        status.text = "Loading Playlist..."
+        status.text = "Refreshing Playlist..."
 
         Thread {
+
+            var loadedChannels = mutableListOf<Channel>()
+            var message = ""
 
             try {
 
@@ -567,104 +620,103 @@ class MainActivity : AppCompatActivity() {
                     "Mozilla/5.0"
                 )
 
-                connection.connect()
+                try {
 
-                if (connection.responseCode !in 200..299) {
-                    throw Exception("HTTP ${connection.responseCode}")
-                }
+                    connection.connect()
 
-                channels.clear()
-
-                var name = ""
-                var group = "Other"
-
-                connection.inputStream.bufferedReader().use { reader ->
-
-                    reader.forEachLine { line ->
-
-                        val item = line.trim()
-
-                        if (item.startsWith("#EXTINF", true)) {
-
-                            name = item.substringAfter(",", "").trim()
-
-                            val match = Regex(
-                                "group-title=\"([^\"]*)\"",
-                                RegexOption.IGNORE_CASE
-                            ).find(item)
-
-                            group = match?.groupValues?.get(1)
-                                ?.trim()
-                                ?.ifBlank { "Other" }
-                                ?: "Other"
-
-                        } else if (
-                            item.startsWith("http://") ||
-                            item.startsWith("https://")
-                        ) {
-
-                            channels.add(
-                                Channel(
-                                    name.ifBlank {
-                                        "Channel ${channels.size + 1}"
-                                    },
-                                    item,
-                                    group
-                                )
-                            )
-
-                            name = ""
-                            group = "Other"
-                        }
-                    }
-                }
-
-                connection.disconnect()
-
-                runOnUiThread {
-
-                    if (channels.isEmpty()) {
-                        status.text = "No Channels Found"
-                        return@runOnUiThread
+                    if (connection.responseCode !in 200..299) {
+                        throw Exception("HTTP ${connection.responseCode}")
                     }
 
-                    groups.clear()
-                    groups.add("ALL")
-
-                    channels.map { it.group }
-                        .distinct()
-                        .sorted()
-                        .forEach {
-
-                            if (!it.equals("ALL", true)) {
-                                groups.add(it)
-                            }
+                    val rawPlaylist =
+                        connection.inputStream.bufferedReader().use {
+                            it.readText()
                         }
 
-                    showingChannels = false
-                    showGroups()
+                    loadedChannels = parsePlaylist(rawPlaylist)
 
-                    currentIndex = 0
-                    playChannel(currentIndex)
+                    if (loadedChannels.isEmpty()) {
+                        throw Exception("Playlist is empty")
+                    }
 
-                    root.postDelayed({
-                        if (!isFullscreen) {
-                            toggleFullscreen()
-                        }
-                    }, 1500)
+                    // Save only a successfully loaded playlist
+                    getSharedPreferences(
+                        backupPrefs,
+                        MODE_PRIVATE
+                    ).edit()
+                        .putString(backupKey, rawPlaylist)
+                        .apply()
+
+                    message = "Latest Playlist Loaded"
+
+                } finally {
+                    connection.disconnect()
                 }
 
             } catch (e: Exception) {
 
                 Log.e(
                     "ISLAMPUR_IPTV",
-                    "Playlist Error",
+                    "Online playlist failed",
                     e
                 )
 
-                runOnUiThread {
-                    status.text = "Playlist Loading Failed"
+                // Load last saved playlist if online refresh fails
+                val savedPlaylist = getSharedPreferences(
+                    backupPrefs,
+                    MODE_PRIVATE
+                ).getString(backupKey, null)
+
+                if (!savedPlaylist.isNullOrBlank()) {
+
+                    loadedChannels = parsePlaylist(savedPlaylist)
+
+                    message = "Offline Backup Loaded"
+
+                } else {
+
+                    message = "Playlist Loading Failed"
                 }
+            }
+
+            runOnUiThread {
+
+                if (loadedChannels.isEmpty()) {
+                    status.text = message
+                    return@runOnUiThread
+                }
+
+                channels.clear()
+                channels.addAll(loadedChannels)
+
+                groups.clear()
+                groups.add("ALL")
+
+                channels.map { it.group }
+                    .distinct()
+                    .sorted()
+                    .forEach {
+
+                        if (!it.equals("ALL", true)) {
+                            groups.add(it)
+                        }
+                    }
+
+                currentIndex = 0
+                selectedGroup = "ALL"
+                showingChannels = false
+
+                showGroups()
+                playChannel(currentIndex)
+
+                status.text =
+                    "$message - ${channels.size} Channels"
+
+                root.postDelayed({
+                    if (!isFullscreen) {
+                        toggleFullscreen()
+                    }
+                }, 1500)
             }
 
         }.start()
@@ -843,7 +895,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Play selected channel
     private fun playChannel(index: Int) {
 
         if (channels.isEmpty() || index !in channels.indices) {
