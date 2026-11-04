@@ -6,10 +6,13 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.GestureDetector
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
@@ -36,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedGroup = "ALL"
     private var isFullscreen = false
     private var showingChannels = false
+    private var currentFrameMode = "FIT"
 
     private var player: ExoPlayer? = null
 
@@ -43,17 +47,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
     private lateinit var listTitle: TextView
+    private lateinit var listScroll: ScrollView
     private lateinit var groupList: LinearLayout
     private lateinit var channelList: LinearLayout
     private lateinit var playerView: PlayerView
     private lateinit var playerFrame: FrameLayout
     private lateinit var status: TextView
     private lateinit var channelTitle: TextView
-    private lateinit var controlBar: LinearLayout
-    private lateinit var fullscreenButton: Button
+    private lateinit var settingsButton: Button
 
     private val navy = Color.rgb(12, 20, 38)
     private val blue = Color.rgb(25, 85, 160)
+
+    private lateinit var gestureDetector: GestureDetector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +67,7 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         createLayout()
+        setupGestures()
 
         player = ExoPlayer.Builder(this).build()
         playerView.player = player
@@ -125,11 +132,10 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(5), dp(3), dp(5), dp(3))
         }
 
-        val listScroll = ScrollView(this).apply {
+        listScroll = ScrollView(this).apply {
             isFillViewport = true
+            addView(groupList)
         }
-
-        listScroll.addView(groupList)
 
         leftPanel.addView(
             listScroll,
@@ -145,17 +151,53 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
+        // উপরের Channel name এবং Settings
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.BLACK)
+        }
 
-        rightPanel.addView(
+        channelTitle = makeLabel(
+            "LIVE TV PLAYER",
+            18f,
+            Color.WHITE
+        )
+
+        channelTitle.setOnClickListener {
+            toggleFullscreen()
+        }
+
+        header.addView(
             channelTitle,
+            LinearLayout.LayoutParams(0, dp(55), 1f)
+        )
+
+        settingsButton = makeButton("⚙ SETTINGS") {
+            showFrameSettings()
+        }
+
+        header.addView(
+            settingsButton,
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(50)
+                dp(125),
+                dp(48)
             )
         )
 
-        status = makeLabel("Loading Playlist...", 14f, Color.YELLOW)
+        rightPanel.addView(
+            header,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(55)
+            )
+        )
+
+        status = makeLabel(
+            "Loading Playlist...",
+            14f,
+            Color.YELLOW
+        )
 
         rightPanel.addView(
             status,
@@ -182,15 +224,16 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Video watermark: bottom-right
+            // Watermark
             val watermark = TextView(this@MainActivity).apply {
                 text = "ISLAMPUR CABLE"
                 textSize = 15f
                 setTextColor(Color.WHITE)
                 setTypeface(null, Typeface.BOLD)
                 setPadding(dp(10), dp(6), dp(10), dp(6))
+
                 background = GradientDrawable().apply {
-                    setColor(Color.argb(150, 0, 0, 0))
+                    setColor(Color.argb(160, 0, 0, 0))
                     cornerRadius = dp(5).toFloat()
                 }
             }
@@ -217,33 +260,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        controlBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(navy)
-            setPadding(dp(3), dp(5), dp(3), dp(5))
-        }
-
-        controlBar.addView(
-            makeButton("◀ PREVIOUS") { playPrevious() },
-            LinearLayout.LayoutParams(0, dp(52), 1f)
-        )
-
-        controlBar.addView(
-            makeButton("NEXT ▶") { playNext() },
-            LinearLayout.LayoutParams(0, dp(52), 1f)
-        )
-
-        fullscreenButton = makeButton("FULL SCREEN") {
-            toggleFullscreen()
-        }
-
-        controlBar.addView(
-            fullscreenButton,
-            LinearLayout.LayoutParams(0, dp(52), 1f)
-        )
-
-        rightPanel.addView(controlBar)
+        // নিচের নীল Previous / Next বার রাখা হয়নি
 
         root.addView(
             leftPanel,
@@ -263,6 +280,42 @@ class MainActivity : AppCompatActivity() {
         )
 
         setContentView(root)
+    }
+
+    private fun setupGestures() {
+
+        gestureDetector = GestureDetector(
+            this,
+            object : GestureDetector.SimpleOnGestureListener() {
+
+                override fun onDown(e: MotionEvent): Boolean {
+                    return true
+                }
+
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    toggleFullscreen()
+                    return true
+                }
+            }
+        )
+
+        // ভিডিওতে Double Tap করলে Fullscreen হবে
+        val touchLayer = View(this).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+
+            setOnTouchListener { _, event ->
+                gestureDetector.onTouchEvent(event)
+                true
+            }
+        }
+
+        val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+
+        // Touch layer ভিডিওর ওপর, Watermark-এর নিচে
+        playerFrame.addView(touchLayer, 1, params)
     }
 
     private fun makeLabel(
@@ -286,13 +339,61 @@ class MainActivity : AppCompatActivity() {
     ): Button {
         return Button(this).apply {
             this.text = text
-            textSize = 13f
+            textSize = 12f
             isAllCaps = false
             setTextColor(Color.WHITE)
             setBackgroundColor(blue)
             isFocusable = true
             setOnClickListener { action() }
         }
+    }
+
+    // Frame Settings
+    private fun showFrameSettings() {
+
+        val options = arrayOf(
+            "FIT - সম্পূর্ণ ভিডিও দেখা যাবে",
+            "FILL - স্ক্রিন ভরে ভিডিও",
+            "ZOOM - ভিডিও বড় করে দেখা যাবে"
+        )
+
+        val currentChoice = when (currentFrameMode) {
+            "FILL" -> 1
+            "ZOOM" -> 2
+            else -> 0
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("VIDEO FRAME SETTINGS")
+            .setSingleChoiceItems(
+                options,
+                currentChoice
+            ) { dialog, which ->
+
+                when (which) {
+                    0 -> {
+                        currentFrameMode = "FIT"
+                        playerView.resizeMode =
+                            AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
+
+                    1 -> {
+                        currentFrameMode = "FILL"
+                        playerView.resizeMode =
+                            AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    }
+
+                    2 -> {
+                        currentFrameMode = "ZOOM"
+                        playerView.resizeMode =
+                            AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    }
+                }
+
+                dialog.dismiss()
+            }
+            .setNegativeButton("CLOSE", null)
+            .show()
     }
 
     private fun loadPlaylist() {
@@ -399,28 +500,30 @@ class MainActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
+
                 runOnUiThread {
                     status.text = "Playlist Loading Failed"
                 }
             }
+
         }.start()
     }
 
-    // শুধু Group-এর তালিকা দেখাবে
+    // Group তালিকা
     private fun showGroups() {
 
         showingChannels = false
 
         listTitle.text = "GROUPS"
-        groupList.removeAllViews()
 
-        groupList.visibility = View.VISIBLE
-        channelList.visibility = View.GONE
+        listScroll.removeAllViews()
+        listScroll.addView(groupList)
+
+        groupList.removeAllViews()
 
         groups.forEach { group ->
 
             val button = makeButton(group.uppercase()) {
-
                 selectedGroup = group
                 showChannels()
             }
@@ -435,33 +538,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Group-এ ক্লিক করলে শুধু সেই Group-এর Channel দেখাবে
+    // Channel তালিকা
     private fun showChannels() {
 
         showingChannels = true
 
-        listTitle.text = "‹ BACK  |  $selectedGroup"
+        listTitle.text = "CHANNELS - $selectedGroup"
 
-        groupList.visibility = View.GONE
-        channelList.visibility = View.VISIBLE
-
-        // একই ScrollView-তে Channel তালিকা দেখানোর জন্য
-        val scroll = leftPanel.getChildAt(2) as ScrollView
-
-        scroll.removeAllViews()
-        scroll.addView(channelList)
+        listScroll.removeAllViews()
+        listScroll.addView(channelList)
 
         channelList.removeAllViews()
 
-        val filtered = if (selectedGroup == "ALL") {
-            channels
-        } else {
-            channels.filter {
-                it.group.equals(selectedGroup, true)
-            }
-        }
-
-        // Back button
         val backButton = makeButton("‹ BACK TO GROUPS") {
             showGroups()
         }
@@ -473,6 +561,14 @@ class MainActivity : AppCompatActivity() {
                 dp(55)
             )
         )
+
+        val filtered = if (selectedGroup == "ALL") {
+            channels
+        } else {
+            channels.filter {
+                it.group.equals(selectedGroup, true)
+            }
+        }
 
         filtered.forEach { channel ->
 
@@ -557,24 +653,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun playNext() {
-        if (channels.isNotEmpty()) {
-            playChannel((currentIndex + 1) % channels.size)
-        }
-    }
-
-    private fun playPrevious() {
-        if (channels.isNotEmpty()) {
-            val previous = if (currentIndex == 0) {
-                channels.size - 1
-            } else {
-                currentIndex - 1
-            }
-
-            playChannel(previous)
-        }
-    }
-
     private fun toggleFullscreen() {
 
         isFullscreen = !isFullscreen
@@ -583,9 +661,8 @@ class MainActivity : AppCompatActivity() {
 
             leftPanel.visibility = View.GONE
             channelTitle.visibility = View.GONE
+            settingsButton.visibility = View.GONE
             status.visibility = View.GONE
-
-            fullscreenButton.text = "EXIT FULL"
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -597,9 +674,8 @@ class MainActivity : AppCompatActivity() {
 
             leftPanel.visibility = View.VISIBLE
             channelTitle.visibility = View.VISIBLE
+            settingsButton.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
-
-            fullscreenButton.text = "FULL SCREEN"
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -607,6 +683,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.requestLayout()
+        playerFrame.requestLayout()
     }
 
     @Suppress("DEPRECATION")
@@ -622,9 +699,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+
         playerView.player = null
         player?.release()
         player = null
+
         super.onDestroy()
     }
 }
