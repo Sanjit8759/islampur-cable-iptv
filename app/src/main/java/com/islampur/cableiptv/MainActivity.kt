@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -19,6 +20,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.AspectRatioFrameLayout
 import java.net.HttpURLConnection
@@ -71,34 +75,89 @@ class MainActivity : AppCompatActivity() {
 
         createLayout()
         setupGestures()
+        createPlayer()
 
-        player = ExoPlayer.Builder(this).build()
+        loadPlaylist()
+    }
+
+    // Create improved ExoPlayer
+    private fun createPlayer() {
+
+        val httpFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent(
+                "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36"
+            )
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(20000)
+            .setReadTimeoutMs(30000)
+
+        val mediaSourceFactory =
+            DefaultMediaSourceFactory(httpFactory)
+
+        val renderersFactory =
+            DefaultRenderersFactory(this)
+                .setEnableDecoderFallback(true)
+
+        player = ExoPlayer.Builder(this, renderersFactory)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
+
         playerView.player = player
 
         player?.addListener(object : Player.Listener {
+
             override fun onPlayerError(error: PlaybackException) {
-                status.text = "Stream Error - Try Another Channel"
+
+                val detail = error.cause?.message ?: error.message ?: "Unknown error"
+
+                Log.e(
+                    "ISLAMPUR_IPTV",
+                    "Playback Error: ${error.errorCodeName} - $detail",
+                    error
+                )
+
+                status.text =
+                    "Error: ${error.errorCodeName}"
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Playback Error: ${error.errorCodeName}",
+                    Toast.LENGTH_LONG
+                ).show()
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) {
-                    updateStatus()
+
+                when (state) {
+                    Player.STATE_BUFFERING -> {
+                        status.text = "Buffering..."
+                    }
+
+                    Player.STATE_READY -> {
+                        updateStatus()
+                    }
+
+                    Player.STATE_ENDED -> {
+                        status.text = "Stream Ended"
+                    }
+
+                    Player.STATE_IDLE -> {
+                        // Waiting for player
+                    }
                 }
             }
         })
-
-        loadPlaylist()
     }
 
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
     }
 
-    // Focus background for remote control
     private fun focusBackground(
         focused: Boolean,
         selected: Boolean = false
     ): GradientDrawable {
+
         val color = when {
             focused -> yellow
             selected -> blue
@@ -108,6 +167,7 @@ class MainActivity : AppCompatActivity() {
         return GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(7).toFloat()
+
             if (focused) {
                 setStroke(dp(3), Color.WHITE)
             }
@@ -221,6 +281,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         playerFrame = FrameLayout(this).apply {
+
             setBackgroundColor(Color.BLACK)
 
             addView(
@@ -231,11 +292,19 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Transparent two-line watermark
+            // Watermark
             val watermark = LinearLayout(this@MainActivity).apply {
+
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
-                setPadding(dp(5), dp(3), dp(55), dp(10))
+
+                setPadding(
+                    dp(5),
+                    dp(3),
+                    dp(55),
+                    dp(10)
+                )
+
                 setBackgroundColor(Color.TRANSPARENT)
 
                 addView(TextView(this@MainActivity).apply {
@@ -245,7 +314,12 @@ class MainActivity : AppCompatActivity() {
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
                     includeFontPadding = false
-                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
+                    setShadowLayer(
+                        dp(3).toFloat(),
+                        1f,
+                        1f,
+                        Color.BLACK
+                    )
                 })
 
                 addView(TextView(this@MainActivity).apply {
@@ -255,7 +329,12 @@ class MainActivity : AppCompatActivity() {
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
                     includeFontPadding = false
-                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
+                    setShadowLayer(
+                        dp(3).toFloat(),
+                        1f,
+                        1f,
+                        Color.BLACK
+                    )
                 })
             }
 
@@ -275,6 +354,7 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(Color.WHITE)
                 setBackgroundColor(Color.argb(170, 0, 0, 0))
                 isFocusable = true
+
                 setOnClickListener {
                     showFrameSettings()
                 }
@@ -286,7 +366,13 @@ class MainActivity : AppCompatActivity() {
                 Gravity.TOP or Gravity.END
             )
 
-            settingsParams.setMargins(dp(5), dp(8), dp(12), dp(5))
+            settingsParams.setMargins(
+                dp(5),
+                dp(8),
+                dp(12),
+                dp(5)
+            )
+
             addView(videoSettings, settingsParams)
         }
 
@@ -338,16 +424,20 @@ class MainActivity : AppCompatActivity() {
                     velocityX: Float,
                     velocityY: Float
                 ): Boolean {
+
                     if (e1 != null &&
                         kotlin.math.abs(e2.x - e1.x) > dp(80)
                     ) {
+
                         if (e2.x < e1.x) {
                             playNext()
                         } else {
                             playPrevious()
                         }
+
                         return true
                     }
+
                     return false
                 }
             }
@@ -359,11 +449,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Remote UP/DOWN while video is fullscreen
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 
         if (event.action == KeyEvent.ACTION_DOWN && isFullscreen) {
+
             when (event.keyCode) {
+
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     playNext()
                     return true
@@ -384,6 +475,7 @@ class MainActivity : AppCompatActivity() {
         size: Float,
         color: Int
     ): TextView {
+
         return TextView(this).apply {
             this.text = text
             textSize = size
@@ -398,6 +490,7 @@ class MainActivity : AppCompatActivity() {
         text: String,
         action: () -> Unit
     ): Button {
+
         return Button(this).apply {
             this.text = text
             textSize = 13f
@@ -409,7 +502,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Video Frame Settings
     private fun showFrameSettings() {
 
         val options = arrayOf(
@@ -427,7 +519,9 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("VIDEO FRAME SETTINGS")
             .setSingleChoiceItems(options, selected) { dialog, which ->
+
                 when (which) {
+
                     0 -> {
                         currentFrameMode = "STRETCH"
                         playerView.resizeMode =
@@ -460,13 +554,19 @@ class MainActivity : AppCompatActivity() {
         status.text = "Loading Playlist..."
 
         Thread {
+
             try {
+
                 val connection =
                     URL(playlistUrl).openConnection() as HttpURLConnection
 
                 connection.connectTimeout = 20000
                 connection.readTimeout = 30000
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                connection.setRequestProperty(
+                    "User-Agent",
+                    "Mozilla/5.0"
+                )
+
                 connection.connect()
 
                 if (connection.responseCode !in 200..299) {
@@ -479,10 +579,13 @@ class MainActivity : AppCompatActivity() {
                 var group = "Other"
 
                 connection.inputStream.bufferedReader().use { reader ->
+
                     reader.forEachLine { line ->
+
                         val item = line.trim()
 
                         if (item.startsWith("#EXTINF", true)) {
+
                             name = item.substringAfter(",", "").trim()
 
                             val match = Regex(
@@ -499,6 +602,7 @@ class MainActivity : AppCompatActivity() {
                             item.startsWith("http://") ||
                             item.startsWith("https://")
                         ) {
+
                             channels.add(
                                 Channel(
                                     name.ifBlank {
@@ -518,6 +622,7 @@ class MainActivity : AppCompatActivity() {
                 connection.disconnect()
 
                 runOnUiThread {
+
                     if (channels.isEmpty()) {
                         status.text = "No Channels Found"
                         return@runOnUiThread
@@ -530,6 +635,7 @@ class MainActivity : AppCompatActivity() {
                         .distinct()
                         .sorted()
                         .forEach {
+
                             if (!it.equals("ALL", true)) {
                                 groups.add(it)
                             }
@@ -549,14 +655,21 @@ class MainActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
+
+                Log.e(
+                    "ISLAMPUR_IPTV",
+                    "Playlist Error",
+                    e
+                )
+
                 runOnUiThread {
                     status.text = "Playlist Loading Failed"
                 }
             }
+
         }.start()
     }
 
-    // Show Groups with remote focus highlight
     private fun showGroups() {
 
         showingChannels = false
@@ -569,18 +682,23 @@ class MainActivity : AppCompatActivity() {
         groups.forEach { group ->
 
             val button = Button(this).apply {
+
                 text = group.uppercase()
                 textSize = 16f
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 isFocusable = true
                 isFocusableInTouchMode = true
+
                 background = focusBackground(false)
 
                 setOnFocusChangeListener { _, focused ->
+
                     background = focusBackground(focused)
+
                     if (focused) {
-                        listTitle.text = "SELECTED GROUP: ${group.uppercase()}"
+                        listTitle.text =
+                            "SELECTED GROUP: ${group.uppercase()}"
                     }
                 }
 
@@ -594,19 +712,20 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(65)
             )
+
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
 
             groupList.addView(button, params)
         }
 
         groupList.post {
+
             if (groupList.childCount > 0) {
                 groupList.getChildAt(0).requestFocus()
             }
         }
     }
 
-    // Show Channels with remote focus highlight
     private fun showChannels() {
 
         showingChannels = true
@@ -617,15 +736,18 @@ class MainActivity : AppCompatActivity() {
         channelList.removeAllViews()
 
         val backButton = Button(this).apply {
+
             text = "‹ BACK TO GROUPS"
             textSize = 14f
             isAllCaps = false
             setTextColor(Color.WHITE)
             isFocusable = true
+
             background = focusBackground(false)
 
             setOnFocusChangeListener { _, focused ->
                 background = focusBackground(focused)
+
                 if (focused) {
                     listTitle.text = "BACK TO GROUPS"
                 }
@@ -657,16 +779,29 @@ class MainActivity : AppCompatActivity() {
             val index = channels.indexOf(channel)
 
             val button = Button(this).apply {
+
                 text = channel.name
                 textSize = 14f
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(12), dp(5), dp(5), dp(5))
+
+                setPadding(
+                    dp(12),
+                    dp(5),
+                    dp(5),
+                    dp(5)
+                )
+
                 isFocusable = true
-                background = focusBackground(false, index == currentIndex)
+
+                background = focusBackground(
+                    false,
+                    index == currentIndex
+                )
 
                 setOnFocusChangeListener { _, focused ->
+
                     background = focusBackground(
                         focused,
                         index == currentIndex
@@ -678,6 +813,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 setOnClickListener {
+
                     currentIndex = index
                     playChannel(currentIndex)
 
@@ -691,12 +827,14 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(58)
             )
+
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
 
             channelList.addView(button, params)
         }
 
         channelList.post {
+
             if (channelList.childCount > 1) {
                 channelList.getChildAt(1).requestFocus()
             } else {
@@ -708,28 +846,46 @@ class MainActivity : AppCompatActivity() {
     // Play selected channel
     private fun playChannel(index: Int) {
 
-        if (channels.isEmpty() || index !in channels.indices) return
+        if (channels.isEmpty() || index !in channels.indices) {
+            return
+        }
 
         currentIndex = index
+
         val channel = channels[index]
 
         channelTitle.text = channel.name
         status.text = "Loading: ${channel.name}"
 
         try {
+
             player?.stop()
             player?.clearMediaItems()
-            player?.setMediaItem(MediaItem.fromUri(channel.url))
+
+            val mediaItem = MediaItem.Builder()
+                .setUri(channel.url)
+                .build()
+
+            player?.setMediaItem(mediaItem)
             player?.prepare()
             player?.play()
 
         } catch (e: Exception) {
+
+            Log.e(
+                "ISLAMPUR_IPTV",
+                "Channel Start Error",
+                e
+            )
+
             status.text = "Unable to Play Channel"
         }
     }
 
     private fun updateStatus() {
+
         if (channels.isNotEmpty()) {
+
             status.text =
                 "Playing: ${channels[currentIndex].name} " +
                 "(${currentIndex + 1}/${channels.size})"
@@ -737,23 +893,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playNext() {
+
         if (channels.isNotEmpty()) {
             playChannel((currentIndex + 1) % channels.size)
         }
     }
 
     private fun playPrevious() {
+
         if (channels.isNotEmpty()) {
+
             val previous = if (currentIndex == 0) {
                 channels.size - 1
             } else {
                 currentIndex - 1
             }
+
             playChannel(previous)
         }
     }
 
-    // Fullscreen
     private fun toggleFullscreen() {
 
         isFullscreen = !isFullscreen
@@ -762,6 +921,7 @@ class MainActivity : AppCompatActivity() {
             header.layoutParams as LinearLayout.LayoutParams
 
         if (isFullscreen) {
+
             leftPanel.visibility = View.GONE
             channelTitle.visibility = View.GONE
             status.visibility = View.GONE
@@ -774,6 +934,7 @@ class MainActivity : AppCompatActivity() {
 
             val videoParams =
                 playerFrame.layoutParams as LinearLayout.LayoutParams
+
             videoParams.bottomMargin = dp(12)
             playerFrame.layoutParams = videoParams
 
@@ -784,6 +945,7 @@ class MainActivity : AppCompatActivity() {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
         } else {
+
             leftPanel.visibility = View.VISIBLE
             channelTitle.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
@@ -796,6 +958,7 @@ class MainActivity : AppCompatActivity() {
 
             val videoParams =
                 playerFrame.layoutParams as LinearLayout.LayoutParams
+
             videoParams.bottomMargin = 0
             playerFrame.layoutParams = videoParams
 
@@ -814,9 +977,9 @@ class MainActivity : AppCompatActivity() {
         playerFrame.requestLayout()
     }
 
-    // Back navigation
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
+
         if (isFullscreen) {
             toggleFullscreen()
         } else if (showingChannels) {
@@ -827,9 +990,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+
         playerView.player = null
+
         player?.release()
         player = null
+
         super.onDestroy()
     }
 }
