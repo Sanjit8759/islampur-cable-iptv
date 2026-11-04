@@ -54,10 +54,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerFrame: FrameLayout
     private lateinit var status: TextView
     private lateinit var channelTitle: TextView
-    private lateinit var settingsButton: Button
 
     private lateinit var videoGesture: GestureDetector
-    private lateinit var titleGesture: GestureDetector
 
     private val navy = Color.rgb(12, 20, 38)
     private val blue = Color.rgb(25, 85, 160)
@@ -152,25 +150,30 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
+        // Header
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(Color.BLACK)
         }
 
-        channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
+        channelTitle = makeLabel(
+            "LIVE TV PLAYER",
+            18f,
+            Color.WHITE
+        )
 
         header.addView(
             channelTitle,
             LinearLayout.LayoutParams(0, dp(55), 1f)
         )
 
-        settingsButton = makeButton("SETTINGS") {
+        val headerSettings = makeButton("SETTINGS") {
             showFrameSettings()
         }
 
         header.addView(
-            settingsButton,
+            headerSettings,
             LinearLayout.LayoutParams(dp(125), dp(48))
         )
 
@@ -182,7 +185,11 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        status = makeLabel("Loading Playlist...", 14f, Color.YELLOW)
+        status = makeLabel(
+            "Loading Playlist...",
+            14f,
+            Color.YELLOW
+        )
 
         rightPanel.addView(
             status,
@@ -199,6 +206,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         playerFrame = FrameLayout(this).apply {
+
             setBackgroundColor(Color.BLACK)
 
             addView(
@@ -229,17 +237,17 @@ class MainActivity : AppCompatActivity() {
                 Gravity.BOTTOM or Gravity.END
             )
 
-            // 55dp right margin moves watermark left
+            // Watermark slightly left from bottom-right
             watermarkParams.setMargins(
                 dp(5), dp(5), dp(55), dp(15)
             )
 
             addView(watermark, watermarkParams)
 
-            // Settings button in video area
+            // Settings button on video
             val videoSettings = Button(this@MainActivity).apply {
                 text = "⚙"
-                textSize = 18f
+                textSize = 20f
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 setBackgroundColor(Color.argb(170, 0, 0, 0))
@@ -269,6 +277,8 @@ class MainActivity : AppCompatActivity() {
                 1f
             )
         )
+
+        // No bottom blue Previous / Next bar
 
         root.addView(
             leftPanel,
@@ -328,28 +338,8 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
-        titleGesture = GestureDetector(
-            this,
-            object : GestureDetector.SimpleOnGestureListener() {
-
-                override fun onDown(e: MotionEvent): Boolean {
-                    return true
-                }
-
-                override fun onDoubleTap(e: MotionEvent): Boolean {
-                    toggleFullscreen()
-                    return true
-                }
-            }
-        )
-
         playerView.setOnTouchListener { _, event ->
             videoGesture.onTouchEvent(event)
-            true
-        }
-
-        channelTitle.setOnTouchListener { _, event ->
-            titleGesture.onTouchEvent(event)
             true
         }
     }
@@ -384,6 +374,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Video Frame Settings
     private fun showFrameSettings() {
 
         val options = arrayOf(
@@ -400,7 +391,10 @@ class MainActivity : AppCompatActivity() {
 
         AlertDialog.Builder(this)
             .setTitle("VIDEO FRAME SETTINGS")
-            .setSingleChoiceItems(options, selected) { dialog, which ->
+            .setSingleChoiceItems(
+                options,
+                selected
+            ) { dialog, which ->
 
                 when (which) {
                     0 -> {
@@ -429,6 +423,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    // Load playlist
     private fun loadPlaylist() {
 
         status.text = "Loading Playlist..."
@@ -524,6 +519,7 @@ class MainActivity : AppCompatActivity() {
                     currentIndex = 0
                     playChannel(currentIndex)
 
+                    // First channel starts in fullscreen
                     root.postDelayed({
                         if (!isFullscreen) {
                             toggleFullscreen()
@@ -540,6 +536,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    // Show only Groups
     private fun showGroups() {
 
         showingChannels = false
@@ -567,6 +564,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Show only Channels of selected Group
     private fun showChannels() {
 
         showingChannels = true
@@ -602,6 +600,7 @@ class MainActivity : AppCompatActivity() {
             val index = channels.indexOf(channel)
 
             val button = TextView(this).apply {
+
                 text = channel.name
                 textSize = 15f
                 setTextColor(Color.WHITE)
@@ -623,10 +622,16 @@ class MainActivity : AppCompatActivity() {
                 isFocusable = true
                 isClickable = true
 
+                // IMPORTANT:
+                // Click channel name -> play channel -> fullscreen
                 setOnClickListener {
                     currentIndex = index
                     playChannel(currentIndex)
                     showChannels()
+
+                    if (!isFullscreen) {
+                        toggleFullscreen()
+                    }
                 }
             }
 
@@ -636,10 +641,12 @@ class MainActivity : AppCompatActivity() {
             )
 
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
+
             channelList.addView(button, params)
         }
     }
 
+    // Play selected channel
     private fun playChannel(index: Int) {
 
         if (channels.isEmpty() || index !in channels.indices) {
@@ -647,6 +654,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         currentIndex = index
+
         val channel = channels[index]
 
         channelTitle.text = channel.name
@@ -669,6 +677,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
+
         if (channels.isNotEmpty()) {
             status.text =
                 "Playing: ${channels[currentIndex].name} " +
@@ -684,15 +693,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun playPrevious() {
         if (channels.isNotEmpty()) {
+
             val previous = if (currentIndex == 0) {
                 channels.size - 1
             } else {
                 currentIndex - 1
             }
+
             playChannel(previous)
         }
     }
 
+    // Fullscreen on/off
     private fun toggleFullscreen() {
 
         isFullscreen = !isFullscreen
@@ -724,6 +736,7 @@ class MainActivity : AppCompatActivity() {
         playerFrame.requestLayout()
     }
 
+    // Back: fullscreen -> channels -> groups
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
 
@@ -737,9 +750,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+
         playerView.player = null
         player?.release()
         player = null
+
         super.onDestroy()
     }
 }
