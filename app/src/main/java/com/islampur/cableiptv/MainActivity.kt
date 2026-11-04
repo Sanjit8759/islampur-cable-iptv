@@ -1,3 +1,15 @@
+        playerFrame = FrameLayout(this).apply {
+
+            setBackgroundColor(Color.BLACK)
+
+            addView(
+                playerView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+
             // Watermark and Internet Contact
             val watermark = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -9,21 +21,24 @@
                     cornerRadius = dp(5).toFloat()
                 }
 
-                addView(TextView(this@MainActivity).apply {
+                val firstLine = TextView(this@MainActivity).apply {
                     text = "ISLAMPUR CABLE"
                     textSize = 15f
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
-                })
+                }
 
-                addView(TextView(this@MainActivity).apply {
+                val secondLine = TextView(this@MainActivity).apply {
                     text = "ইন্টারনেট সংযোগের জন্য যোগাযোগ করুন: 8759411065"
                     textSize = 11f
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
-                })
+                }
+
+                addView(firstLine)
+                addView(secondLine)
             }
 
             val watermarkParams = FrameLayout.LayoutParams(
@@ -37,3 +52,28 @@
             )
 
             addView(watermark, watermarkParams)
+
+            // Settings button on video
+            val videoSettings = Button(this@MainActivity).apply {
+                text = "⚙"
+                textSize = 20f
+                isAllCaps = false
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.argb(170, 0, 0, 0))
+                setOnClickListener {
+                    showFrameSettings()
+                }
+            }
+
+            val settingsParams = FrameLayout.LayoutParams(
+                dp(55),
+                dp(48),
+                Gravity.TOP or Gravity.END
+            )
+
+            settingsParams.setMargins(
+                dp(5), dp(8), dp(12), dp(5)
+            )
+
+            addView(videoSettings, settingsParams)
+        }
