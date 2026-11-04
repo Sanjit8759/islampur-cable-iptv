@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         playerView.player = player
 
         player?.addListener(object : Player.Listener {
+
             override fun onPlayerError(error: PlaybackException) {
                 status.text = "Stream Error - Try Another Channel"
             }
@@ -164,7 +165,7 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(0, dp(55), 1f)
         )
 
-        settingsButton = makeButton("⚙ SETTINGS") {
+        settingsButton = makeButton("SETTINGS") {
             showFrameSettings()
         }
 
@@ -208,7 +209,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Watermark at bottom-right
+            // Watermark
             val watermark = TextView(this@MainActivity).apply {
                 text = "ISLAMPUR CABLE"
                 textSize = 15f
@@ -228,13 +229,14 @@ class MainActivity : AppCompatActivity() {
                 Gravity.BOTTOM or Gravity.END
             )
 
+            // 55dp right margin moves watermark left
             watermarkParams.setMargins(
-                dp(5), dp(5), dp(15), dp(15)
+                dp(5), dp(5), dp(55), dp(15)
             )
 
             addView(watermark, watermarkParams)
 
-            // Settings button remains available in fullscreen
+            // Settings button in video area
             val videoSettings = Button(this@MainActivity).apply {
                 text = "⚙"
                 textSize = 18f
@@ -267,8 +269,6 @@ class MainActivity : AppCompatActivity() {
                 1f
             )
         )
-
-        // No bottom blue Previous / Next bar
 
         root.addView(
             leftPanel,
@@ -312,7 +312,9 @@ class MainActivity : AppCompatActivity() {
                     velocityY: Float
                 ): Boolean {
 
-                    if (e1 != null && kotlin.math.abs(e2.x - e1.x) > dp(80)) {
+                    if (e1 != null &&
+                        kotlin.math.abs(e2.x - e1.x) > dp(80)
+                    ) {
                         if (e2.x < e1.x) {
                             playNext()
                         } else {
@@ -541,7 +543,6 @@ class MainActivity : AppCompatActivity() {
     private fun showGroups() {
 
         showingChannels = false
-
         listTitle.text = "GROUPS"
 
         listScroll.removeAllViews()
@@ -569,7 +570,6 @@ class MainActivity : AppCompatActivity() {
     private fun showChannels() {
 
         showingChannels = true
-
         listTitle.text = "CHANNELS - $selectedGroup"
 
         listScroll.removeAllViews()
@@ -636,7 +636,6 @@ class MainActivity : AppCompatActivity() {
             )
 
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
-
             channelList.addView(button, params)
         }
     }
@@ -648,7 +647,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         currentIndex = index
-
         val channel = channels[index]
 
         channelTitle.text = channel.name
@@ -691,7 +689,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 currentIndex - 1
             }
-
             playChannel(previous)
         }
     }
