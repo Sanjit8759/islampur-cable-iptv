@@ -1,7 +1,6 @@
 
 package com.islampur.cableiptv
 
-import android.content.res.Configuration
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
@@ -13,6 +12,7 @@ import android.view.GestureDetector
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
 import androidx.media3.common.MediaItem
@@ -39,8 +39,8 @@ class MainActivity : AppCompatActivity() {
 
     private var currentIndex = 0
     private var selectedGroup = "ALL"
-    private var showingChannels = false
     private var isFullscreen = false
+    private var showingChannels = false
     private var currentFrameMode = "STRETCH"
 
     private var player: ExoPlayer? = null
@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
     private lateinit var header: LinearLayout
+    private lateinit var headerSettings: Button
     private lateinit var listTitle: TextView
     private lateinit var listScroll: ScrollView
     private lateinit var groupList: LinearLayout
@@ -57,27 +58,26 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerFrame: FrameLayout
     private lateinit var status: TextView
     private lateinit var channelTitle: TextView
-
     private lateinit var videoGesture: GestureDetector
 
     private val navy = Color.rgb(12, 20, 38)
     private val blue = Color.rgb(25, 85, 160)
+    private val yellow = Color.rgb(210, 150, 0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.addFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        )
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        createLayout()
+        setupGestures()
 
         player = ExoPlayer.Builder(this).build()
+        playerView.player = player
 
         player?.addListener(object : Player.Listener {
-
             override fun onPlayerError(error: PlaybackException) {
-                if (::status.isInitialized) {
-                    status.text = "Stream Error - Try Another Channel"
-                }
+                status.text = "Stream Error - Try Another Channel"
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -87,8 +87,6 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        createLayout()
-        setupGestures()
         loadPlaylist()
     }
 
@@ -96,21 +94,31 @@ class MainActivity : AppCompatActivity() {
         return (value * resources.displayMetrics.density).toInt()
     }
 
-    private fun isPortrait(): Boolean {
-        return resources.configuration.orientation ==
-            Configuration.ORIENTATION_PORTRAIT
+    // Focus background for remote control
+    private fun focusBackground(
+        focused: Boolean,
+        selected: Boolean = false
+    ): GradientDrawable {
+        val color = when {
+            focused -> yellow
+            selected -> blue
+            else -> Color.rgb(38, 57, 78)
+        }
+
+        return GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(7).toFloat()
+            if (focused) {
+                setStroke(dp(3), Color.WHITE)
+            }
+        }
     }
 
     private fun createLayout() {
 
         root = LinearLayout(this).apply {
-            orientation = if (isPortrait()) {
-                LinearLayout.VERTICAL
-            } else {
-                LinearLayout.HORIZONTAL
-            }
+            orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(navy)
-            isFocusable = true
         }
 
         leftPanel = LinearLayout(this).apply {
@@ -122,17 +130,17 @@ class MainActivity : AppCompatActivity() {
             makeLabel("ISLAMPUR CABLE IPTV", 18f, Color.WHITE),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(60)
             )
         )
 
-        listTitle = makeLabel("GROUPS", 18f, Color.YELLOW)
+        listTitle = makeLabel("GROUPS", 17f, Color.YELLOW)
 
         leftPanel.addView(
             listTitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(45)
+                dp(65)
             )
         )
 
@@ -148,6 +156,7 @@ class MainActivity : AppCompatActivity() {
 
         listScroll = ScrollView(this).apply {
             isFillViewport = true
+            isFocusable = false
             addView(groupList)
         }
 
@@ -171,58 +180,44 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        channelTitle = makeLabel(
-            "LIVE TV PLAYER",
-            17f,
-            Color.WHITE
-        )
+        channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
 
         header.addView(
             channelTitle,
-            LinearLayout.LayoutParams(0, dp(48), 1f)
+            LinearLayout.LayoutParams(0, dp(55), 1f)
         )
 
-        val settingsButton = makeButton("⚙ SETTINGS") {
+        headerSettings = makeButton("SETTINGS") {
             showFrameSettings()
         }
 
         header.addView(
-            settingsButton,
-            LinearLayout.LayoutParams(dp(125), dp(45))
+            headerSettings,
+            LinearLayout.LayoutParams(dp(125), dp(48))
         )
 
         rightPanel.addView(
             header,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(48)
+                dp(55)
             )
         )
 
-        status = makeLabel(
-            "Loading Playlist...",
-            13f,
-            Color.YELLOW
-        )
+        status = makeLabel("Loading Playlist...", 14f, Color.YELLOW)
 
         rightPanel.addView(
             status,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(30)
+                dp(35)
             )
         )
 
         playerView = PlayerView(this).apply {
             useController = false
             setBackgroundColor(Color.BLACK)
-            resizeMode = when (currentFrameMode) {
-                "FIT" -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-                "ZOOM" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                else -> AspectRatioFrameLayout.RESIZE_MODE_FILL
-            }
-            player = this@MainActivity.player
-            isFocusable = true
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
         }
 
         playerFrame = FrameLayout(this).apply {
@@ -236,7 +231,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Transparent watermark
+            // Transparent two-line watermark
             val watermark = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
@@ -249,9 +244,8 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
-                    setShadowLayer(
-                        dp(3).toFloat(), 1f, 1f, Color.BLACK
-                    )
+                    includeFontPadding = false
+                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
                 })
 
                 addView(TextView(this@MainActivity).apply {
@@ -260,9 +254,8 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
-                    setShadowLayer(
-                        dp(3).toFloat(), 1f, 1f, Color.BLACK
-                    )
+                    includeFontPadding = false
+                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
                 })
             }
 
@@ -275,10 +268,9 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Video settings gear
             val videoSettings = Button(this@MainActivity).apply {
                 text = "⚙"
-                textSize = 22f
+                textSize = 20f
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 setBackgroundColor(Color.argb(170, 0, 0, 0))
@@ -288,17 +280,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val gearParams = FrameLayout.LayoutParams(
+            val settingsParams = FrameLayout.LayoutParams(
                 dp(55),
                 dp(48),
                 Gravity.TOP or Gravity.END
             )
 
-            gearParams.setMargins(
-                dp(5), dp(8), dp(12), dp(5)
-            )
-
-            addView(videoSettings, gearParams)
+            settingsParams.setMargins(dp(5), dp(8), dp(12), dp(5))
+            addView(videoSettings, settingsParams)
         }
 
         rightPanel.addView(
@@ -310,74 +299,24 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        if (isPortrait()) {
-
-            root.addView(
-                rightPanel,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    2f
-                )
+        root.addView(
+            leftPanel,
+            LinearLayout.LayoutParams(
+                dp(300),
+                LinearLayout.LayoutParams.MATCH_PARENT
             )
+        )
 
-            root.addView(
-                leftPanel,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
+        root.addView(
+            rightPanel,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1f
             )
-
-        } else {
-
-            root.addView(
-                leftPanel,
-                LinearLayout.LayoutParams(
-                    dp(280),
-                    LinearLayout.LayoutParams.MATCH_PARENT
-                )
-            )
-
-            root.addView(
-                rightPanel,
-                LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    1f
-                )
-            )
-        }
+        )
 
         setContentView(root)
-
-        if (isFullscreen) {
-            leftPanel.visibility = View.GONE
-            header.visibility = View.GONE
-            status.visibility = View.GONE
-        } else {
-            leftPanel.visibility = View.VISIBLE
-            header.visibility = View.VISIBLE
-            status.visibility = View.VISIBLE
-        }
-
-        if (groups.isNotEmpty()) {
-            if (showingChannels) {
-                showChannels()
-            } else {
-                showGroups()
-            }
-        }
-    }
-
-    // Rebuild layout after mobile screen rotation
-    override fun onConfigurationChanged(
-        newConfig: Configuration
-    ) {
-        super.onConfigurationChanged(newConfig)
-        createLayout()
-        setupGestures()
     }
 
     private fun setupGestures() {
@@ -386,9 +325,7 @@ class MainActivity : AppCompatActivity() {
             this,
             object : GestureDetector.SimpleOnGestureListener() {
 
-                override fun onDown(e: MotionEvent): Boolean {
-                    return true
-                }
+                override fun onDown(e: MotionEvent): Boolean = true
 
                 override fun onDoubleTap(e: MotionEvent): Boolean {
                     toggleFullscreen()
@@ -401,7 +338,6 @@ class MainActivity : AppCompatActivity() {
                     velocityX: Float,
                     velocityY: Float
                 ): Boolean {
-
                     if (e1 != null &&
                         kotlin.math.abs(e2.x - e1.x) > dp(80)
                     ) {
@@ -412,7 +348,6 @@ class MainActivity : AppCompatActivity() {
                         }
                         return true
                     }
-
                     return false
                 }
             }
@@ -422,6 +357,26 @@ class MainActivity : AppCompatActivity() {
             videoGesture.onTouchEvent(event)
             true
         }
+    }
+
+    // Remote UP/DOWN while video is fullscreen
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+
+        if (event.action == KeyEvent.ACTION_DOWN && isFullscreen) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    playNext()
+                    return true
+                }
+
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    playPrevious()
+                    return true
+                }
+            }
+        }
+
+        return super.dispatchKeyEvent(event)
     }
 
     private fun makeLabel(
@@ -450,16 +405,15 @@ class MainActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             setBackgroundColor(blue)
             isFocusable = true
-            isFocusableInTouchMode = true
             setOnClickListener { action() }
         }
     }
 
-    // Frame settings
+    // Video Frame Settings
     private fun showFrameSettings() {
 
         val options = arrayOf(
-            "FULL SCREEN STRETCH",
+            "FULL SCREEN STRETCH - কালো জায়গা থাকবে না",
             "FIT - সম্পূর্ণ ভিডিও",
             "ZOOM - ভিডিও বড় করে"
         )
@@ -472,11 +426,7 @@ class MainActivity : AppCompatActivity() {
 
         AlertDialog.Builder(this)
             .setTitle("VIDEO FRAME SETTINGS")
-            .setSingleChoiceItems(
-                options,
-                selected
-            ) { dialog, which ->
-
+            .setSingleChoiceItems(options, selected) { dialog, which ->
                 when (which) {
                     0 -> {
                         currentFrameMode = "STRETCH"
@@ -516,11 +466,7 @@ class MainActivity : AppCompatActivity() {
 
                 connection.connectTimeout = 20000
                 connection.readTimeout = 30000
-                connection.setRequestProperty(
-                    "User-Agent",
-                    "Mozilla/5.0"
-                )
-
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
                 connection.connect()
 
                 if (connection.responseCode !in 200..299) {
@@ -533,13 +479,10 @@ class MainActivity : AppCompatActivity() {
                 var group = "Other"
 
                 connection.inputStream.bufferedReader().use { reader ->
-
                     reader.forEachLine { line ->
-
                         val item = line.trim()
 
                         if (item.startsWith("#EXTINF", true)) {
-
                             name = item.substringAfter(",", "").trim()
 
                             val match = Regex(
@@ -556,7 +499,6 @@ class MainActivity : AppCompatActivity() {
                             item.startsWith("http://") ||
                             item.startsWith("https://")
                         ) {
-
                             channels.add(
                                 Channel(
                                     name.ifBlank {
@@ -576,7 +518,6 @@ class MainActivity : AppCompatActivity() {
                 connection.disconnect()
 
                 runOnUiThread {
-
                     if (channels.isEmpty()) {
                         status.text = "No Channels Found"
                         return@runOnUiThread
@@ -608,7 +549,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
-
                 runOnUiThread {
                     status.text = "Playlist Loading Failed"
                 }
@@ -616,11 +556,11 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // Show groups
+    // Show Groups with remote focus highlight
     private fun showGroups() {
 
         showingChannels = false
-        listTitle.text = "GROUPS"
+        listTitle.text = "GROUPS - রিমোট দিয়ে নির্বাচন করুন"
 
         listScroll.removeAllViews()
         listScroll.addView(groupList)
@@ -628,22 +568,45 @@ class MainActivity : AppCompatActivity() {
 
         groups.forEach { group ->
 
-            val button = makeButton(group.uppercase()) {
-                selectedGroup = group
-                showChannels()
+            val button = Button(this).apply {
+                text = group.uppercase()
+                textSize = 16f
+                isAllCaps = false
+                setTextColor(Color.WHITE)
+                isFocusable = true
+                isFocusableInTouchMode = true
+                background = focusBackground(false)
+
+                setOnFocusChangeListener { _, focused ->
+                    background = focusBackground(focused)
+                    if (focused) {
+                        listTitle.text = "SELECTED GROUP: ${group.uppercase()}"
+                    }
+                }
+
+                setOnClickListener {
+                    selectedGroup = group
+                    showChannels()
+                }
             }
 
-            groupList.addView(
-                button,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(60)
-                )
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(65)
             )
+            params.setMargins(dp(3), dp(3), dp(3), dp(3))
+
+            groupList.addView(button, params)
+        }
+
+        groupList.post {
+            if (groupList.childCount > 0) {
+                groupList.getChildAt(0).requestFocus()
+            }
         }
     }
 
-    // Show channels
+    // Show Channels with remote focus highlight
     private fun showChannels() {
 
         showingChannels = true
@@ -653,15 +616,31 @@ class MainActivity : AppCompatActivity() {
         listScroll.addView(channelList)
         channelList.removeAllViews()
 
-        val backButton = makeButton("‹ BACK TO GROUPS") {
-            showGroups()
+        val backButton = Button(this).apply {
+            text = "‹ BACK TO GROUPS"
+            textSize = 14f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            isFocusable = true
+            background = focusBackground(false)
+
+            setOnFocusChangeListener { _, focused ->
+                background = focusBackground(focused)
+                if (focused) {
+                    listTitle.text = "BACK TO GROUPS"
+                }
+            }
+
+            setOnClickListener {
+                showGroups()
+            }
         }
 
         channelList.addView(
             backButton,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(50)
+                dp(55)
             )
         )
 
@@ -677,28 +656,26 @@ class MainActivity : AppCompatActivity() {
 
             val index = channels.indexOf(channel)
 
-            val button = TextView(this).apply {
+            val button = Button(this).apply {
                 text = channel.name
-                textSize = 15f
+                textSize = 14f
+                isAllCaps = false
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(12), dp(5), dp(5), dp(5))
-                setTypeface(null, Typeface.BOLD)
-
-                background = GradientDrawable().apply {
-                    setColor(
-                        if (index == currentIndex) {
-                            blue
-                        } else {
-                            Color.rgb(38, 57, 78)
-                        }
-                    )
-                    cornerRadius = dp(7).toFloat()
-                }
-
                 isFocusable = true
-                isFocusableInTouchMode = true
-                isClickable = true
+                background = focusBackground(false, index == currentIndex)
+
+                setOnFocusChangeListener { _, focused ->
+                    background = focusBackground(
+                        focused,
+                        index == currentIndex
+                    )
+
+                    if (focused) {
+                        listTitle.text = "SELECTED: ${channel.name}"
+                    }
+                }
 
                 setOnClickListener {
                     currentIndex = index
@@ -712,23 +689,28 @@ class MainActivity : AppCompatActivity() {
 
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(58)
             )
-
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
+
             channelList.addView(button, params)
+        }
+
+        channelList.post {
+            if (channelList.childCount > 1) {
+                channelList.getChildAt(1).requestFocus()
+            } else {
+                backButton.requestFocus()
+            }
         }
     }
 
-    // Play channel
+    // Play selected channel
     private fun playChannel(index: Int) {
 
-        if (channels.isEmpty() || index !in channels.indices) {
-            return
-        }
+        if (channels.isEmpty() || index !in channels.indices) return
 
         currentIndex = index
-
         val channel = channels[index]
 
         channelTitle.text = channel.name
@@ -740,10 +722,6 @@ class MainActivity : AppCompatActivity() {
             player?.setMediaItem(MediaItem.fromUri(channel.url))
             player?.prepare()
             player?.play()
-
-            if (showingChannels) {
-                showChannels()
-            }
 
         } catch (e: Exception) {
             status.text = "Unable to Play Channel"
@@ -780,10 +758,24 @@ class MainActivity : AppCompatActivity() {
 
         isFullscreen = !isFullscreen
 
+        val headerParams =
+            header.layoutParams as LinearLayout.LayoutParams
+
         if (isFullscreen) {
             leftPanel.visibility = View.GONE
-            header.visibility = View.GONE
+            channelTitle.visibility = View.GONE
             status.visibility = View.GONE
+
+            headerParams.height = dp(42)
+            header.layoutParams = headerParams
+
+            headerSettings.layoutParams =
+                LinearLayout.LayoutParams(dp(125), dp(38))
+
+            val videoParams =
+                playerFrame.layoutParams as LinearLayout.LayoutParams
+            videoParams.bottomMargin = dp(12)
+            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -793,56 +785,38 @@ class MainActivity : AppCompatActivity() {
 
         } else {
             leftPanel.visibility = View.VISIBLE
-            header.visibility = View.VISIBLE
+            channelTitle.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
+
+            headerParams.height = dp(55)
+            header.layoutParams = headerParams
+
+            headerSettings.layoutParams =
+                LinearLayout.LayoutParams(dp(125), dp(48))
+
+            val videoParams =
+                playerFrame.layoutParams as LinearLayout.LayoutParams
+            videoParams.bottomMargin = 0
+            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
                 View.SYSTEM_UI_FLAG_VISIBLE
+
+            if (showingChannels) {
+                showChannels()
+            } else {
+                showGroups()
+            }
         }
 
         root.requestLayout()
         playerFrame.requestLayout()
     }
 
-    // TV remote key support
-    override fun onKeyDown(
-        keyCode: Int,
-        event: KeyEvent?
-    ): Boolean {
-
-        when (keyCode) {
-
-            KeyEvent.KEYCODE_MEDIA_NEXT,
-            KeyEvent.KEYCODE_CHANNEL_UP -> {
-                playNext()
-                return true
-            }
-
-            KeyEvent.KEYCODE_MEDIA_PREVIOUS,
-            KeyEvent.KEYCODE_CHANNEL_DOWN -> {
-                playPrevious()
-                return true
-            }
-
-            KeyEvent.KEYCODE_MENU -> {
-                showFrameSettings()
-                return true
-            }
-
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER -> {
-                return super.onKeyDown(keyCode, event)
-            }
-        }
-
-        return super.onKeyDown(keyCode, event)
-    }
-
-    // Back: fullscreen -> channels -> groups
+    // Back navigation
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-
         if (isFullscreen) {
             toggleFullscreen()
         } else if (showingChannels) {
