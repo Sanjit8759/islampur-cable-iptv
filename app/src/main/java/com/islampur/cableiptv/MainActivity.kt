@@ -35,11 +35,14 @@ class MainActivity : AppCompatActivity() {
     private var currentIndex = 0
     private var selectedGroup = "ALL"
     private var isFullscreen = false
+    private var showingChannels = false
+
     private var player: ExoPlayer? = null
 
     private lateinit var root: LinearLayout
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
+    private lateinit var listTitle: TextView
     private lateinit var groupList: LinearLayout
     private lateinit var channelList: LinearLayout
     private lateinit var playerView: PlayerView
@@ -51,7 +54,6 @@ class MainActivity : AppCompatActivity() {
 
     private val navy = Color.rgb(12, 20, 38)
     private val blue = Color.rgb(25, 85, 160)
-    private val panelColor = Color.rgb(20, 37, 59)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +66,7 @@ class MainActivity : AppCompatActivity() {
         playerView.player = player
 
         player?.addListener(object : Player.Listener {
+
             override fun onPlayerError(error: PlaybackException) {
                 status.text = "Stream Error - Try Another Channel"
             }
@@ -91,28 +94,24 @@ class MainActivity : AppCompatActivity() {
 
         leftPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(panelColor)
+            setBackgroundColor(Color.rgb(20, 37, 59))
         }
 
-        val brand = makeLabel(
-            "ISLAMPUR CABLE IPTV",
-            18f,
-            Color.WHITE
-        )
-
         leftPanel.addView(
-            brand,
+            makeLabel("ISLAMPUR CABLE IPTV", 18f, Color.WHITE),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(60)
             )
         )
 
+        listTitle = makeLabel("GROUPS", 20f, Color.YELLOW)
+
         leftPanel.addView(
-            makeLabel("GROUPS", 17f, Color.YELLOW),
+            listTitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(42)
+                dp(55)
             )
         )
 
@@ -121,44 +120,23 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(5), dp(3), dp(5), dp(3))
         }
 
-        val scrollGroups = ScrollView(this).apply {
-            isFillViewport = true
-            addView(groupList)
-        }
-
-        leftPanel.addView(
-            scrollGroups,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        leftPanel.addView(
-            makeLabel("CHANNELS", 17f, Color.YELLOW),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(42)
-            )
-        )
-
         channelList = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(5), dp(3), dp(5), dp(3))
         }
 
-        val scrollChannels = ScrollView(this).apply {
+        val listScroll = ScrollView(this).apply {
             isFillViewport = true
-            addView(channelList)
         }
 
+        listScroll.addView(groupList)
+
         leftPanel.addView(
-            scrollChannels,
+            listScroll,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
-                2f
+                1f
             )
         )
 
@@ -167,11 +145,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        channelTitle = makeLabel(
-            "LIVE TV PLAYER",
-            18f,
-            Color.WHITE
-        )
+        channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
 
         rightPanel.addView(
             channelTitle,
@@ -181,11 +155,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        status = makeLabel(
-            "Loading Playlist...",
-            14f,
-            Color.YELLOW
-        )
+        status = makeLabel("Loading Playlist...", 14f, Color.YELLOW)
 
         rightPanel.addView(
             status,
@@ -211,6 +181,31 @@ class MainActivity : AppCompatActivity() {
                     FrameLayout.LayoutParams.MATCH_PARENT
                 )
             )
+
+            // Video watermark: bottom-right
+            val watermark = TextView(this@MainActivity).apply {
+                text = "ISLAMPUR CABLE"
+                textSize = 15f
+                setTextColor(Color.WHITE)
+                setTypeface(null, Typeface.BOLD)
+                setPadding(dp(10), dp(6), dp(10), dp(6))
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(150, 0, 0, 0))
+                    cornerRadius = dp(5).toFloat()
+                }
+            }
+
+            val watermarkParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.END
+            )
+
+            watermarkParams.setMargins(
+                dp(5), dp(5), dp(15), dp(15)
+            )
+
+            addView(watermark, watermarkParams)
         }
 
         rightPanel.addView(
@@ -239,7 +234,7 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(0, dp(52), 1f)
         )
 
-        fullscreenButton = makeButton("EXIT FULL") {
+        fullscreenButton = makeButton("FULL SCREEN") {
             toggleFullscreen()
         }
 
@@ -291,7 +286,7 @@ class MainActivity : AppCompatActivity() {
     ): Button {
         return Button(this).apply {
             this.text = text
-            textSize = 12f
+            textSize = 13f
             isAllCaps = false
             setTextColor(Color.WHITE)
             setBackgroundColor(blue)
@@ -342,9 +337,7 @@ class MainActivity : AppCompatActivity() {
                                 RegexOption.IGNORE_CASE
                             ).find(item)
 
-                            group = match
-                                ?.groupValues
-                                ?.get(1)
+                            group = match?.groupValues?.get(1)
                                 ?.trim()
                                 ?.ifBlank { "Other" }
                                 ?: "Other"
@@ -356,11 +349,11 @@ class MainActivity : AppCompatActivity() {
 
                             channels.add(
                                 Channel(
-                                    name = name.ifBlank {
+                                    name.ifBlank {
                                         "Channel ${channels.size + 1}"
                                     },
-                                    url = item,
-                                    group = group
+                                    item,
+                                    group
                                 )
                             )
 
@@ -385,21 +378,19 @@ class MainActivity : AppCompatActivity() {
                     channels.map { it.group }
                         .distinct()
                         .sorted()
-                        .forEach { groupName ->
-                            if (!groupName.equals("ALL", true)) {
-                                groups.add(groupName)
+                        .forEach {
+                            if (!it.equals("ALL", true)) {
+                                groups.add(it)
                             }
                         }
 
-                    selectedGroup = "ALL"
-
+                    showingChannels = false
                     showGroups()
-                    showChannels()
 
                     currentIndex = 0
                     playChannel(currentIndex)
 
-                    // প্রথম চ্যানেল চালু হওয়ার পর Fullscreen
+                    // প্রথম চ্যানেল চালুর পর Fullscreen
                     root.postDelayed({
                         if (!isFullscreen) {
                             toggleFullscreen()
@@ -408,42 +399,57 @@ class MainActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
-
                 runOnUiThread {
                     status.text = "Playlist Loading Failed"
                 }
             }
-
         }.start()
     }
 
+    // শুধু Group-এর তালিকা দেখাবে
     private fun showGroups() {
 
+        showingChannels = false
+
+        listTitle.text = "GROUPS"
         groupList.removeAllViews()
+
+        groupList.visibility = View.VISIBLE
+        channelList.visibility = View.GONE
 
         groups.forEach { group ->
 
             val button = makeButton(group.uppercase()) {
 
                 selectedGroup = group
-
-                showGroups()
                 showChannels()
             }
-
-            button.textSize = 13f
 
             groupList.addView(
                 button,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(45)
+                    dp(65)
                 )
             )
         }
     }
 
+    // Group-এ ক্লিক করলে শুধু সেই Group-এর Channel দেখাবে
     private fun showChannels() {
+
+        showingChannels = true
+
+        listTitle.text = "‹ BACK  |  $selectedGroup"
+
+        groupList.visibility = View.GONE
+        channelList.visibility = View.VISIBLE
+
+        // একই ScrollView-তে Channel তালিকা দেখানোর জন্য
+        val scroll = leftPanel.getChildAt(2) as ScrollView
+
+        scroll.removeAllViews()
+        scroll.addView(channelList)
 
         channelList.removeAllViews()
 
@@ -455,6 +461,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Back button
+        val backButton = makeButton("‹ BACK TO GROUPS") {
+            showGroups()
+        }
+
+        channelList.addView(
+            backButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(55)
+            )
+        )
+
         filtered.forEach { channel ->
 
             val index = channels.indexOf(channel)
@@ -462,7 +481,7 @@ class MainActivity : AppCompatActivity() {
             val button = TextView(this).apply {
 
                 text = channel.name
-                textSize = 14f
+                textSize = 15f
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(12), dp(5), dp(5), dp(5))
@@ -491,7 +510,7 @@ class MainActivity : AppCompatActivity() {
 
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(48)
+                dp(58)
             )
 
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
@@ -516,15 +535,13 @@ class MainActivity : AppCompatActivity() {
         try {
             player?.stop()
             player?.clearMediaItems()
-
-            player?.setMediaItem(
-                MediaItem.fromUri(channel.url)
-            )
-
+            player?.setMediaItem(MediaItem.fromUri(channel.url))
             player?.prepare()
             player?.play()
 
-            showChannels()
+            if (showingChannels) {
+                showChannels()
+            }
 
         } catch (e: Exception) {
             status.text = "Unable to Play Channel"
@@ -534,7 +551,6 @@ class MainActivity : AppCompatActivity() {
     private fun updateStatus() {
 
         if (channels.isNotEmpty()) {
-
             status.text =
                 "Playing: ${channels[currentIndex].name} " +
                 "(${currentIndex + 1}/${channels.size})"
@@ -542,24 +558,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playNext() {
-
         if (channels.isNotEmpty()) {
             playChannel((currentIndex + 1) % channels.size)
         }
     }
 
     private fun playPrevious() {
-
         if (channels.isNotEmpty()) {
+            val previous = if (currentIndex == 0) {
+                channels.size - 1
+            } else {
+                currentIndex - 1
+            }
 
-            val previousIndex =
-                if (currentIndex == 0) {
-                    channels.size - 1
-                } else {
-                    currentIndex - 1
-                }
-
-            playChannel(previousIndex)
+            playChannel(previous)
         }
     }
 
@@ -595,7 +607,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.requestLayout()
-        playerFrame.requestLayout()
     }
 
     @Suppress("DEPRECATION")
@@ -603,17 +614,17 @@ class MainActivity : AppCompatActivity() {
 
         if (isFullscreen) {
             toggleFullscreen()
+        } else if (showingChannels) {
+            showGroups()
         } else {
             super.onBackPressed()
         }
     }
 
     override fun onDestroy() {
-
         playerView.player = null
         player?.release()
         player = null
-
         super.onDestroy()
     }
 }
