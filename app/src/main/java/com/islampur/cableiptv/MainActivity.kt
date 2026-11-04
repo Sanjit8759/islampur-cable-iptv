@@ -1,17 +1,18 @@
 
 package com.islampur.cableiptv
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.GestureDetector
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
-import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
 import androidx.media3.common.MediaItem
@@ -38,8 +39,8 @@ class MainActivity : AppCompatActivity() {
 
     private var currentIndex = 0
     private var selectedGroup = "ALL"
-    private var isFullscreen = false
     private var showingChannels = false
+    private var isFullscreen = false
     private var currentFrameMode = "STRETCH"
 
     private var player: ExoPlayer? = null
@@ -48,7 +49,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
     private lateinit var header: LinearLayout
-    private lateinit var headerSettings: Button
     private lateinit var listTitle: TextView
     private lateinit var listScroll: ScrollView
     private lateinit var groupList: LinearLayout
@@ -66,18 +66,18 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        createLayout()
-        setupGestures()
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
 
         player = ExoPlayer.Builder(this).build()
-        playerView.player = player
 
         player?.addListener(object : Player.Listener {
 
             override fun onPlayerError(error: PlaybackException) {
-                status.text = "Stream Error - Try Another Channel"
+                if (::status.isInitialized) {
+                    status.text = "Stream Error - Try Another Channel"
+                }
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -87,6 +87,8 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        createLayout()
+        setupGestures()
         loadPlaylist()
     }
 
@@ -94,11 +96,21 @@ class MainActivity : AppCompatActivity() {
         return (value * resources.displayMetrics.density).toInt()
     }
 
+    private fun isPortrait(): Boolean {
+        return resources.configuration.orientation ==
+            Configuration.ORIENTATION_PORTRAIT
+    }
+
     private fun createLayout() {
 
         root = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = if (isPortrait()) {
+                LinearLayout.VERTICAL
+            } else {
+                LinearLayout.HORIZONTAL
+            }
             setBackgroundColor(navy)
+            isFocusable = true
         }
 
         leftPanel = LinearLayout(this).apply {
@@ -110,17 +122,17 @@ class MainActivity : AppCompatActivity() {
             makeLabel("ISLAMPUR CABLE IPTV", 18f, Color.WHITE),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(60)
+                dp(55)
             )
         )
 
-        listTitle = makeLabel("GROUPS", 20f, Color.YELLOW)
+        listTitle = makeLabel("GROUPS", 18f, Color.YELLOW)
 
         leftPanel.addView(
             listTitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(45)
             )
         )
 
@@ -153,57 +165,67 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        // Header
         header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(Color.BLACK)
         }
 
-        channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
+        channelTitle = makeLabel(
+            "LIVE TV PLAYER",
+            17f,
+            Color.WHITE
+        )
 
         header.addView(
             channelTitle,
-            LinearLayout.LayoutParams(0, dp(55), 1f)
+            LinearLayout.LayoutParams(0, dp(48), 1f)
         )
 
-        headerSettings = makeButton("SETTINGS") {
+        val settingsButton = makeButton("⚙ SETTINGS") {
             showFrameSettings()
         }
 
         header.addView(
-            headerSettings,
-            LinearLayout.LayoutParams(dp(125), dp(48))
+            settingsButton,
+            LinearLayout.LayoutParams(dp(125), dp(45))
         )
 
         rightPanel.addView(
             header,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(48)
             )
         )
 
-        status = makeLabel("Loading Playlist...", 14f, Color.YELLOW)
+        status = makeLabel(
+            "Loading Playlist...",
+            13f,
+            Color.YELLOW
+        )
 
         rightPanel.addView(
             status,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(35)
+                dp(30)
             )
         )
 
         playerView = PlayerView(this).apply {
             useController = false
             setBackgroundColor(Color.BLACK)
-
-            // Default Full Screen Stretch
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+            resizeMode = when (currentFrameMode) {
+                "FIT" -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                "ZOOM" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                else -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+            }
+            player = this@MainActivity.player
+            isFocusable = true
         }
 
         playerFrame = FrameLayout(this).apply {
-
             setBackgroundColor(Color.BLACK)
 
             addView(
@@ -214,7 +236,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // Transparent two-line watermark
+            // Transparent watermark
             val watermark = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
@@ -227,8 +249,9 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
-                    includeFontPadding = false
-                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
+                    setShadowLayer(
+                        dp(3).toFloat(), 1f, 1f, Color.BLACK
+                    )
                 })
 
                 addView(TextView(this@MainActivity).apply {
@@ -237,42 +260,45 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(Color.WHITE)
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
-                    includeFontPadding = false
-                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
+                    setShadowLayer(
+                        dp(3).toFloat(), 1f, 1f, Color.BLACK
+                    )
                 })
             }
 
-            val watermarkParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM
+            addView(
+                watermark,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.BOTTOM
+                )
             )
 
-            addView(watermark, watermarkParams)
-
-            // Settings button on video
+            // Video settings gear
             val videoSettings = Button(this@MainActivity).apply {
                 text = "⚙"
-                textSize = 20f
+                textSize = 22f
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 setBackgroundColor(Color.argb(170, 0, 0, 0))
+                isFocusable = true
                 setOnClickListener {
                     showFrameSettings()
                 }
             }
 
-            val settingsParams = FrameLayout.LayoutParams(
+            val gearParams = FrameLayout.LayoutParams(
                 dp(55),
                 dp(48),
                 Gravity.TOP or Gravity.END
             )
 
-            settingsParams.setMargins(
+            gearParams.setMargins(
                 dp(5), dp(8), dp(12), dp(5)
             )
 
-            addView(videoSettings, settingsParams)
+            addView(videoSettings, gearParams)
         }
 
         rightPanel.addView(
@@ -284,24 +310,74 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        root.addView(
-            leftPanel,
-            LinearLayout.LayoutParams(
-                dp(300),
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        )
+        if (isPortrait()) {
 
-        root.addView(
-            rightPanel,
-            LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                1f
+            root.addView(
+                rightPanel,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    0,
+                    2f
+                )
             )
-        )
+
+            root.addView(
+                leftPanel,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
+            )
+
+        } else {
+
+            root.addView(
+                leftPanel,
+                LinearLayout.LayoutParams(
+                    dp(280),
+                    LinearLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+
+            root.addView(
+                rightPanel,
+                LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    1f
+                )
+            )
+        }
 
         setContentView(root)
+
+        if (isFullscreen) {
+            leftPanel.visibility = View.GONE
+            header.visibility = View.GONE
+            status.visibility = View.GONE
+        } else {
+            leftPanel.visibility = View.VISIBLE
+            header.visibility = View.VISIBLE
+            status.visibility = View.VISIBLE
+        }
+
+        if (groups.isNotEmpty()) {
+            if (showingChannels) {
+                showChannels()
+            } else {
+                showGroups()
+            }
+        }
+    }
+
+    // Rebuild layout after mobile screen rotation
+    override fun onConfigurationChanged(
+        newConfig: Configuration
+    ) {
+        super.onConfigurationChanged(newConfig)
+        createLayout()
+        setupGestures()
     }
 
     private fun setupGestures() {
@@ -374,15 +450,16 @@ class MainActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             setBackgroundColor(blue)
             isFocusable = true
+            isFocusableInTouchMode = true
             setOnClickListener { action() }
         }
     }
 
-    // Video Frame Settings
+    // Frame settings
     private fun showFrameSettings() {
 
         val options = arrayOf(
-            "FULL SCREEN STRETCH - কালো জায়গা থাকবে না",
+            "FULL SCREEN STRETCH",
             "FIT - সম্পূর্ণ ভিডিও",
             "ZOOM - ভিডিও বড় করে"
         )
@@ -395,7 +472,10 @@ class MainActivity : AppCompatActivity() {
 
         AlertDialog.Builder(this)
             .setTitle("VIDEO FRAME SETTINGS")
-            .setSingleChoiceItems(options, selected) { dialog, which ->
+            .setSingleChoiceItems(
+                options,
+                selected
+            ) { dialog, which ->
 
                 when (which) {
                     0 -> {
@@ -536,7 +616,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    // Show Groups
+    // Show groups
     private fun showGroups() {
 
         showingChannels = false
@@ -544,7 +624,6 @@ class MainActivity : AppCompatActivity() {
 
         listScroll.removeAllViews()
         listScroll.addView(groupList)
-
         groupList.removeAllViews()
 
         groups.forEach { group ->
@@ -558,13 +637,13 @@ class MainActivity : AppCompatActivity() {
                 button,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(65)
+                    dp(60)
                 )
             )
         }
     }
 
-    // Show Channels
+    // Show channels
     private fun showChannels() {
 
         showingChannels = true
@@ -572,7 +651,6 @@ class MainActivity : AppCompatActivity() {
 
         listScroll.removeAllViews()
         listScroll.addView(channelList)
-
         channelList.removeAllViews()
 
         val backButton = makeButton("‹ BACK TO GROUPS") {
@@ -583,7 +661,7 @@ class MainActivity : AppCompatActivity() {
             backButton,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(50)
             )
         )
 
@@ -600,7 +678,6 @@ class MainActivity : AppCompatActivity() {
             val index = channels.indexOf(channel)
 
             val button = TextView(this).apply {
-
                 text = channel.name
                 textSize = 15f
                 setTextColor(Color.WHITE)
@@ -620,12 +697,12 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 isFocusable = true
+                isFocusableInTouchMode = true
                 isClickable = true
 
                 setOnClickListener {
                     currentIndex = index
                     playChannel(currentIndex)
-                    showChannels()
 
                     if (!isFullscreen) {
                         toggleFullscreen()
@@ -635,16 +712,15 @@ class MainActivity : AppCompatActivity() {
 
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(58)
+                dp(55)
             )
 
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
-
             channelList.addView(button, params)
         }
     }
 
-    // Play selected channel
+    // Play channel
     private fun playChannel(index: Int) {
 
         if (channels.isEmpty() || index !in channels.indices) {
@@ -675,7 +751,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
-
         if (channels.isNotEmpty()) {
             status.text =
                 "Playing: ${channels[currentIndex].name} " +
@@ -691,44 +766,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun playPrevious() {
         if (channels.isNotEmpty()) {
-
             val previous = if (currentIndex == 0) {
                 channels.size - 1
             } else {
                 currentIndex - 1
             }
-
             playChannel(previous)
         }
     }
 
-    // Fullscreen with reduced top black space
+    // Fullscreen
     private fun toggleFullscreen() {
 
         isFullscreen = !isFullscreen
 
-        val headerParams =
-            header.layoutParams as LinearLayout.LayoutParams
-
         if (isFullscreen) {
-
             leftPanel.visibility = View.GONE
-            channelTitle.visibility = View.GONE
+            header.visibility = View.GONE
             status.visibility = View.GONE
-
-            // Reduce top area
-            headerParams.height = dp(42)
-            header.layoutParams = headerParams
-
-            headerSettings.layoutParams =
-                LinearLayout.LayoutParams(dp(125), dp(38))
-
-            // Small black space below video
-            val videoParams =
-                playerFrame.layoutParams as LinearLayout.LayoutParams
-
-            videoParams.bottomMargin = dp(12)
-            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -737,22 +792,9 @@ class MainActivity : AppCompatActivity() {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
         } else {
-
             leftPanel.visibility = View.VISIBLE
-            channelTitle.visibility = View.VISIBLE
+            header.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
-
-            headerParams.height = dp(55)
-            header.layoutParams = headerParams
-
-            headerSettings.layoutParams =
-                LinearLayout.LayoutParams(dp(125), dp(48))
-
-            val videoParams =
-                playerFrame.layoutParams as LinearLayout.LayoutParams
-
-            videoParams.bottomMargin = 0
-            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -761,6 +803,40 @@ class MainActivity : AppCompatActivity() {
 
         root.requestLayout()
         playerFrame.requestLayout()
+    }
+
+    // TV remote key support
+    override fun onKeyDown(
+        keyCode: Int,
+        event: KeyEvent?
+    ): Boolean {
+
+        when (keyCode) {
+
+            KeyEvent.KEYCODE_MEDIA_NEXT,
+            KeyEvent.KEYCODE_CHANNEL_UP -> {
+                playNext()
+                return true
+            }
+
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+            KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                playPrevious()
+                return true
+            }
+
+            KeyEvent.KEYCODE_MENU -> {
+                showFrameSettings()
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER -> {
+                return super.onKeyDown(keyCode, event)
+            }
+        }
+
+        return super.onKeyDown(keyCode, event)
     }
 
     // Back: fullscreen -> channels -> groups
@@ -777,11 +853,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-
         playerView.player = null
         player?.release()
         player = null
-
         super.onDestroy()
     }
 }
