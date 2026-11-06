@@ -14,6 +14,8 @@
     <application
         android:allowBackup="false"
         android:label="ISLAMPUR CABLE IPTV"
+        android:icon="@drawable/islampur_cable_logo"
+        android:roundIcon="@drawable/islampur_cable_logo"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
