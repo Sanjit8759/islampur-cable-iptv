@@ -37,7 +37,6 @@ class MainActivity : AppCompatActivity() {
     private val backupPrefs = "IPTV_BACKUP"
     private val backupKey = "saved_playlist"
 
-    // YOUR SHOW - Twitch channel website
     private val twitchPage =
         "https://sanjit8759.github.io/islampur-cable-iptv/"
 
@@ -67,7 +66,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
     private lateinit var header: LinearLayout
-    private lateinit var headerSettings: Button
     private lateinit var listTitle: TextView
     private lateinit var listScroll: ScrollView
     private lateinit var groupList: LinearLayout
@@ -77,7 +75,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var channelTitle: TextView
     private lateinit var watermarkView: View
-    private lateinit var videoSettingsView: View
     private lateinit var videoGesture: GestureDetector
 
     private val navy = Color.rgb(12, 20, 38)
@@ -333,7 +330,8 @@ class MainActivity : AppCompatActivity() {
             openYourShow()
         }
 
-        // HOME PAGE SETTINGS BUTTON
+        // SETTINGS - ONLY ON HOME PAGE
+
         val homeSettings = makeButton("⚙ SETTINGS") {
             showFrameSettings()
         }
@@ -455,11 +453,9 @@ class MainActivity : AppCompatActivity() {
 
         leftPanel.visibility = View.GONE
         header.visibility = View.GONE
-        headerSettings.visibility = View.GONE
         status.visibility = View.GONE
         playerView.visibility = View.GONE
         watermarkView.visibility = View.GONE
-        videoSettingsView.visibility = View.GONE
 
         playerFrame.visibility = View.VISIBLE
 
@@ -509,11 +505,9 @@ class MainActivity : AppCompatActivity() {
 
         leftPanel.visibility = View.VISIBLE
         header.visibility = View.VISIBLE
-        headerSettings.visibility = View.GONE
         status.visibility = View.VISIBLE
         playerView.visibility = View.VISIBLE
         watermarkView.visibility = View.VISIBLE
-        videoSettingsView.visibility = View.GONE
 
         currentSection = "HOME"
         isFullscreen = false
@@ -532,10 +526,6 @@ class MainActivity : AppCompatActivity() {
         currentSection = section
         isFullscreen = false
         autoPlayAttempts = 0
-
-        // Player screen-এ Settings লুকানো
-        headerSettings.visibility = View.GONE
-        videoSettingsView.visibility = View.GONE
 
         header.visibility = View.VISIBLE
         channelTitle.visibility = View.VISIBLE
@@ -670,18 +660,14 @@ class MainActivity : AppCompatActivity() {
 
         channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
 
+        // Header-এ আর কোনো SETTINGS বাটন নেই
+
         header.addView(
             channelTitle,
-            LinearLayout.LayoutParams(0, dp(55), 1f)
-        )
-
-        headerSettings = makeButton("SETTINGS") {
-            showFrameSettings()
-        }
-
-        header.addView(
-            headerSettings,
-            LinearLayout.LayoutParams(dp(125), dp(48))
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(55)
+            )
         )
 
         rightPanel.addView(
@@ -759,24 +745,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            val videoSettings = Button(this@MainActivity).apply {
-                text = "⚙"
-                textSize = 20f
-                isAllCaps = false
-                setTextColor(Color.WHITE)
-                setBackgroundColor(Color.argb(170, 0, 0, 0))
-                isFocusable = true
-                setOnClickListener { showFrameSettings() }
-            }
-
-            videoSettingsView = videoSettings
-
-            val settingsParams = FrameLayout.LayoutParams(
-                dp(55), dp(48), Gravity.TOP or Gravity.END
-            )
-
-            settingsParams.setMargins(dp(5), dp(8), dp(12), dp(5))
-            addView(videoSettingsView, settingsParams)
+            // ভিডিওর উপরে কোনো SETTINGS বাটন নেই
         }
 
         rightPanel.addView(
@@ -1384,10 +1353,6 @@ class MainActivity : AppCompatActivity() {
     private fun toggleFullscreen() {
 
         isFullscreen = !isFullscreen
-
-        // Player screen-এ Settings কখনো দেখাবে না
-        headerSettings.visibility = View.GONE
-        videoSettingsView.visibility = View.GONE
 
         if (isFullscreen) {
 
