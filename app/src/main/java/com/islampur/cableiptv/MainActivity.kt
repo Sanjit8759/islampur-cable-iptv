@@ -124,12 +124,9 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPlayerError(error: PlaybackException) {
 
-                val detail =
-                    error.cause?.message ?: error.message ?: "Unknown error"
-
                 Log.e(
                     "ISLAMPUR_IPTV",
-                    "Playback Error: ${error.errorCodeName} - $detail",
+                    "Playback Error: ${error.errorCodeName}",
                     error
                 )
 
@@ -141,7 +138,6 @@ class MainActivity : AppCompatActivity() {
                     autoPlayAttempts < filtered.size - 1
                 ) {
                     autoPlayAttempts++
-
                     status.text = "Channel failed. Trying next channel..."
 
                     playerView.postDelayed({
@@ -160,7 +156,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-
                 when (state) {
                     Player.STATE_BUFFERING -> {
                         status.text = "Buffering..."
@@ -174,8 +169,6 @@ class MainActivity : AppCompatActivity() {
                     Player.STATE_ENDED -> {
                         status.text = "Stream Ended"
                     }
-
-                    Player.STATE_IDLE -> {}
                 }
             }
         })
@@ -259,28 +252,16 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(15), dp(5), dp(15), dp(5))
         }
 
-        val title = makeLabel(
-            "📺 ISLAMPUR CABLE IPTV",
-            26f,
-            Color.WHITE
-        )
-
         homeRoot.addView(
-            title,
+            makeLabel("📺 ISLAMPUR CABLE IPTV", 26f, Color.WHITE),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(65)
             )
         )
 
-        val subtitle = makeLabel(
-            "SELECT YOUR ENTERTAINMENT",
-            19f,
-            Color.YELLOW
-        )
-
         homeRoot.addView(
-            subtitle,
+            makeLabel("SELECT YOUR ENTERTAINMENT", 19f, Color.YELLOW),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(55)
@@ -301,36 +282,27 @@ class MainActivity : AppCompatActivity() {
         )
 
         addHomeButton(
-            "📺",
-            "LIVE TV",
-            Color.rgb(0, 65, 145),
-            Color.CYAN,
-            cardRow
+            "📺", "LIVE TV",
+            Color.rgb(0, 65, 145), Color.CYAN, cardRow
         ) {
             openSection("LIVE")
         }
 
         addHomeButton(
-            "📻",
-            "RADIO",
-            Color.rgb(0, 75, 35),
-            Color.GREEN,
-            cardRow
+            "📻", "RADIO",
+            Color.rgb(0, 75, 35), Color.GREEN, cardRow
         ) {
             openSection("RADIO")
         }
 
         addHomeButton(
-            "🎬",
-            "YOUR SHOW",
-            Color.rgb(65, 0, 105),
-            Color.MAGENTA,
-            cardRow
+            "🎬", "YOUR SHOW",
+            Color.rgb(65, 0, 105), Color.MAGENTA, cardRow
         ) {
             openYourShow()
         }
 
-        // SETTINGS - ONLY ON HOME PAGE
+        // SETTINGS ONLY ON HOME PAGE
 
         val homeSettings = makeButton("⚙ SETTINGS") {
             showFrameSettings()
@@ -346,14 +318,8 @@ class MainActivity : AppCompatActivity() {
 
         homeRoot.addView(homeSettings, settingsParams)
 
-        val footer = makeLabel(
-            "ISLAMPUR CABLE IPTV",
-            17f,
-            Color.WHITE
-        )
-
         homeRoot.addView(
-            footer,
+            makeLabel("ISLAMPUR CABLE IPTV", 17f, Color.WHITE),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(45)
@@ -397,15 +363,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            setOnClickListener {
-                action()
-            }
+            setOnClickListener { action() }
         }
 
-        val iconView = makeLabel(icon, 34f, Color.WHITE)
-
         card.addView(
-            iconView,
+            makeLabel(icon, 34f, Color.WHITE),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -413,10 +375,8 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        val titleView = makeLabel(title, 13f, Color.WHITE)
-
         card.addView(
-            titleView,
+            makeLabel(title, 13f, Color.WHITE),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(38)
@@ -462,7 +422,6 @@ class MainActivity : AppCompatActivity() {
         if (twitchWebView == null) {
 
             twitchWebView = WebView(this).apply {
-
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = true
@@ -527,13 +486,10 @@ class MainActivity : AppCompatActivity() {
         isFullscreen = false
         autoPlayAttempts = 0
 
+        // No SETTINGS in player screen
         header.visibility = View.VISIBLE
         channelTitle.visibility = View.VISIBLE
         status.visibility = View.VISIBLE
-
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility =
-            View.SYSTEM_UI_FLAG_VISIBLE
 
         setContentView(root)
 
@@ -554,7 +510,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (firstChannel >= 0) {
-
             currentIndex = firstChannel
             showingChannels = false
             autoPlayAttempts = 0
@@ -568,7 +523,6 @@ class MainActivity : AppCompatActivity() {
             }
 
         } else {
-
             Toast.makeText(
                 this,
                 "TV Channel পাওয়া যায়নি",
@@ -660,7 +614,7 @@ class MainActivity : AppCompatActivity() {
 
         channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
 
-        // Header-এ আর কোনো SETTINGS বাটন নেই
+        // HEADER SETTINGS BUTTON REMOVED
 
         header.addView(
             channelTitle,
@@ -745,7 +699,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            // ভিডিওর উপরে কোনো SETTINGS বাটন নেই
+            // VIDEO SETTINGS BUTTON REMOVED
         }
 
         rightPanel.addView(
@@ -786,7 +740,9 @@ class MainActivity : AppCompatActivity() {
                 override fun onDown(e: MotionEvent): Boolean = true
 
                 override fun onDoubleTap(e: MotionEvent): Boolean {
-                    toggleFullscreen()
+                    if (currentSection == "LIVE" || currentSection == "RADIO") {
+                        toggleFullscreen()
+                    }
                     return true
                 }
 
@@ -831,8 +787,10 @@ class MainActivity : AppCompatActivity() {
             return true
         }
 
-        if (event.action == KeyEvent.ACTION_DOWN && isFullscreen) {
-
+        if (
+            event.action == KeyEvent.ACTION_DOWN &&
+            isFullscreen
+        ) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     playNext()
@@ -1014,10 +972,8 @@ class MainActivity : AppCompatActivity() {
                 ).getString(backupKey, null)
 
                 if (!savedPlaylist.isNullOrBlank()) {
-
                     loadedChannels = parsePlaylist(savedPlaylist)
                     message = "Offline Backup Loaded"
-
                 } else {
                     message = "Playlist Loading Failed"
                 }
@@ -1131,13 +1087,10 @@ class MainActivity : AppCompatActivity() {
     private fun getSectionChannels(): List<Channel> {
 
         return if (currentSection == "RADIO") {
-
             channels.filter {
                 it.group.equals("RADIO", true)
             }
-
         } else {
-
             channels.filter { channel ->
                 !channel.group.equals("RADIO", true) &&
                 (
@@ -1215,7 +1168,6 @@ class MainActivity : AppCompatActivity() {
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
-
                 setPadding(dp(12), dp(5), dp(5), dp(5))
                 isFocusable = true
 
@@ -1236,7 +1188,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 setOnClickListener {
-
                     currentIndex = index
                     autoPlayAttempts = 0
                     playChannel(currentIndex)
@@ -1280,7 +1231,6 @@ class MainActivity : AppCompatActivity() {
         status.text = "Loading: ${channel.name}"
 
         try {
-
             player?.stop()
             player?.clearMediaItems()
 
@@ -1293,7 +1243,6 @@ class MainActivity : AppCompatActivity() {
             player?.play()
 
         } catch (e: Exception) {
-
             Log.e("ISLAMPUR_IPTV", "Channel Start Error", e)
             status.text = "Unable to Play Channel"
         }
@@ -1352,6 +1301,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun toggleFullscreen() {
 
+        if (currentSection != "LIVE" && currentSection != "RADIO") {
+            return
+        }
+
         isFullscreen = !isFullscreen
 
         if (isFullscreen) {
@@ -1407,27 +1360,21 @@ class MainActivity : AppCompatActivity() {
     override fun onBackPressed() {
 
         if (currentSection == "SHOW") {
-
             closeYourShow()
 
         } else if (isFullscreen) {
-
             toggleFullscreen()
 
         } else if (currentSection == "RADIO") {
-
             returnHome()
 
         } else if (currentSection == "LIVE" && showingChannels) {
-
             showGroups()
 
         } else if (currentSection == "LIVE") {
-
             returnHome()
 
         } else {
-
             super.onBackPressed()
         }
     }
