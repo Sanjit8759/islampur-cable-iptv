@@ -27,6 +27,7 @@ import androidx.media3.ui.PlayerView
 import androidx.media3.ui.AspectRatioFrameLayout
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,6 +43,9 @@ class MainActivity : AppCompatActivity() {
 
     private val channels = mutableListOf<Channel>()
     private val groups = mutableListOf<String>()
+
+    // যেসব চ্যানেল চালু হতে ব্যর্থ হয়েছে
+    private val failedChannelIndices = mutableSetOf<Int>()
 
     private var currentIndex = 0
     private var selectedGroup = "ALL"
@@ -125,21 +129,29 @@ class MainActivity : AppCompatActivity() {
                     error
                 )
 
-                status.text = "Error: ${error.errorCodeName}"
+                status.text = "Channel failed. Trying next channel..."
 
-                Toast.makeText(
-                    this@MainActivity,
-                    "Playback Error: ${error.errorCodeName}",
-                    Toast.LENGTH_LONG
-                ).show()
+                // বর্তমান চ্যানেল না চললে পরের চ্যানেল চেষ্টা
+                tryNextAfterError()
             }
 
             override fun onPlaybackStateChanged(state: Int) {
 
                 when (state) {
-                    Player.STATE_BUFFERING -> status.text = "Buffering..."
-                    Player.STATE_READY -> updateStatus()
-                    Player.STATE_ENDED -> status.text = "Stream Ended"
+
+                    Player.STATE_BUFFERING -> {
+                        status.text = "Buffering..."
+                    }
+
+                    Player.STATE_READY -> {
+                        failedChannelIndices.clear()
+                        updateStatus()
+                    }
+
+                    Player.STATE_ENDED -> {
+                        status.text = "Stream Ended"
+                    }
+
                     Player.STATE_IDLE -> {}
                 }
             }
@@ -221,12 +233,13 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            setPadding(dp(15), dp(5), dp(15), dp(5))
+            // চারদিকে ফাঁকা জায়গা
+            setPadding(dp(25), dp(8), dp(25), dp(8))
         }
 
         val title = makeLabel(
             "📺 ISLAMPUR CABLE IPTV",
-            26f,
+            25f,
             Color.WHITE
         )
 
@@ -240,7 +253,7 @@ class MainActivity : AppCompatActivity() {
 
         val subtitle = makeLabel(
             "SELECT YOUR ENTERTAINMENT",
-            19f,
+            18f,
             Color.YELLOW
         )
 
@@ -248,7 +261,7 @@ class MainActivity : AppCompatActivity() {
             subtitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(50)
             )
         )
 
@@ -261,7 +274,7 @@ class MainActivity : AppCompatActivity() {
             cardRow,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(220)
+                dp(180)
             )
         )
 
@@ -322,14 +335,15 @@ class MainActivity : AppCompatActivity() {
             }
 
             setOnFocusChangeListener { view, focused ->
-                view.scaleX = if (focused) 1.03f else 1f
-                view.scaleY = if (focused) 1.03f else 1f
+
+                view.scaleX = if (focused) 1.02f else 1f
+                view.scaleY = if (focused) 1.02f else 1f
 
                 background = GradientDrawable().apply {
                     setColor(color)
                     cornerRadius = dp(8).toFloat()
                     setStroke(
-                        dp(if (focused) 4 else 2),
+                        dp(if (focused) 3 else 2),
                         if (focused) Color.WHITE else accent
                     )
                 }
@@ -338,7 +352,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { action() }
         }
 
-        val iconView = makeLabel(icon, 38f, Color.WHITE)
+        val iconView = makeLabel(icon, 34f, Color.WHITE)
 
         card.addView(
             iconView,
@@ -349,19 +363,20 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        val titleView = makeLabel(title, 14f, Color.WHITE)
+        val titleView = makeLabel(title, 13f, Color.WHITE)
 
         card.addView(
             titleView,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(42)
+                dp(38)
             )
         )
 
+        // আগের চেয়ে ছোট বক্স এবং দুই পাশে ফাঁকা
         val params = LinearLayout.LayoutParams(
             0,
-            dp(220),
+            dp(165),
             1f
         )
 
@@ -376,12 +391,14 @@ class MainActivity : AppCompatActivity() {
 
         currentSection = section
         isFullscreen = false
+        failedChannelIndices.clear()
 
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_VISIBLE
 
         setContentView(root)
+        restoreNormalLayout()
 
         if (section == "RADIO") {
 
@@ -408,16 +425,18 @@ class MainActivity : AppCompatActivity() {
 
             currentIndex = firstChannel
             showingChannels = false
+            failedChannelIndices.clear()
 
             playChannel(currentIndex)
 
+            // ভিডিও পুরো স্ক্রিনে
             playerFrame.post {
                 if (!isFullscreen) {
                     toggleFullscreen()
                 }
             }
 
-        } else {
+        } else if (channels.isNotEmpty()) {
 
             Toast.makeText(
                 this,
@@ -432,6 +451,8 @@ class MainActivity : AppCompatActivity() {
         isFullscreen = false
         currentSection = "HOME"
         showingChannels = false
+
+        restoreNormalLayout()
 
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -568,6 +589,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
+            // Watermark
             val watermark = LinearLayout(this@MainActivity).apply {
 
                 orientation = LinearLayout.VERTICAL
@@ -607,6 +629,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
+            // Video settings
             val videoSettings = Button(this@MainActivity).apply {
                 text = "⚙"
                 textSize = 20f
@@ -652,6 +675,35 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    // ================= NORMAL LAYOUT RESTORE =================
+
+    private fun restoreNormalLayout() {
+
+        leftPanel.visibility = View.VISIBLE
+        header.visibility = View.VISIBLE
+        channelTitle.visibility = View.VISIBLE
+        status.visibility = View.VISIBLE
+
+        val headerParams =
+            header.layoutParams as LinearLayout.LayoutParams
+
+        headerParams.height = dp(55)
+        header.layoutParams = headerParams
+
+        val videoParams =
+            playerFrame.layoutParams as LinearLayout.LayoutParams
+
+        videoParams.height = 0
+        videoParams.weight = 1f
+        videoParams.bottomMargin = 0
+        playerFrame.layoutParams = videoParams
+
+        headerSettings.layoutParams =
+            LinearLayout.LayoutParams(dp(125), dp(48))
+
+        root.requestLayout()
+    }
+
     // ================= GESTURES =================
 
     private fun setupGestures() {
@@ -675,7 +727,7 @@ class MainActivity : AppCompatActivity() {
                 ): Boolean {
 
                     if (e1 != null &&
-                        kotlin.math.abs(e2.x - e1.x) > dp(80)
+                        abs(e2.x - e1.x) > dp(80)
                     ) {
                         if (e2.x < e1.x) {
                             playNext()
@@ -701,6 +753,7 @@ class MainActivity : AppCompatActivity() {
         if (event.action == KeyEvent.ACTION_DOWN && isFullscreen) {
 
             when (event.keyCode) {
+
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     playNext()
                     return true
@@ -737,6 +790,7 @@ class MainActivity : AppCompatActivity() {
             .setSingleChoiceItems(options, selected) { dialog, which ->
 
                 when (which) {
+
                     0 -> {
                         currentFrameMode = "STRETCH"
                         playerView.resizeMode =
@@ -917,6 +971,8 @@ class MainActivity : AppCompatActivity() {
                 if (currentSection == "LIVE") {
                     showGroups()
                     startFirstLiveChannel()
+                } else if (currentSection == "RADIO") {
+                    showChannels()
                 } else {
                     setContentView(homeRoot)
                 }
@@ -941,6 +997,7 @@ class MainActivity : AppCompatActivity() {
         showingChannels = false
         isFullscreen = false
 
+        restoreNormalLayout()
         setContentView(root)
 
         listTitle.text = "LIVE TV GROUPS"
@@ -1020,6 +1077,7 @@ class MainActivity : AppCompatActivity() {
         showingChannels = true
         isFullscreen = false
 
+        restoreNormalLayout()
         setContentView(root)
 
         listTitle.text =
@@ -1104,6 +1162,7 @@ class MainActivity : AppCompatActivity() {
 
                 setOnClickListener {
 
+                    failedChannelIndices.clear()
                     currentIndex = index
                     playChannel(currentIndex)
 
@@ -1133,10 +1192,17 @@ class MainActivity : AppCompatActivity() {
 
     // ================= PLAY CHANNEL =================
 
-    private fun playChannel(index: Int) {
+    private fun playChannel(
+        index: Int,
+        clearFailedList: Boolean = true
+    ) {
 
         if (channels.isEmpty() || index !in channels.indices) {
             return
+        }
+
+        if (clearFailedList) {
+            failedChannelIndices.clear()
         }
 
         currentIndex = index
@@ -1162,7 +1228,43 @@ class MainActivity : AppCompatActivity() {
 
             Log.e("ISLAMPUR_IPTV", "Channel Start Error", e)
             status.text = "Unable to Play Channel"
+            tryNextAfterError()
         }
+    }
+
+    // ================= AUTO NEXT IF CHANNEL FAILS =================
+
+    private fun tryNextAfterError() {
+
+        if (currentSection != "LIVE" && currentSection != "RADIO") {
+            return
+        }
+
+        failedChannelIndices.add(currentIndex)
+
+        val filtered = getSectionChannels()
+
+        if (filtered.isEmpty()) {
+            status.text = "No channel available"
+            return
+        }
+
+        val nextChannel = filtered.firstOrNull { channel ->
+            val index = channels.indexOf(channel)
+            index !in failedChannelIndices
+        }
+
+        if (nextChannel == null) {
+            status.text = "এই বিভাগের কোনো চ্যানেল চালু হচ্ছে না"
+            return
+        }
+
+        val nextIndex = channels.indexOf(nextChannel)
+
+        status.text = "Trying: ${nextChannel.name}"
+
+        // ব্যর্থ চ্যানেলগুলোর তালিকা রেখে পরের চ্যানেল চালু
+        playChannel(nextIndex, false)
     }
 
     private fun updateStatus() {
@@ -1180,6 +1282,8 @@ class MainActivity : AppCompatActivity() {
 
         val filtered = getSectionChannels()
         if (filtered.isEmpty()) return
+
+        failedChannelIndices.clear()
 
         val currentPosition = filtered.indexOfFirst {
             channels.indexOf(it) == currentIndex
@@ -1199,6 +1303,8 @@ class MainActivity : AppCompatActivity() {
 
         val filtered = getSectionChannels()
         if (filtered.isEmpty()) return
+
+        failedChannelIndices.clear()
 
         val currentPosition = filtered.indexOfFirst {
             channels.indexOf(it) == currentIndex
@@ -1220,25 +1326,21 @@ class MainActivity : AppCompatActivity() {
 
         isFullscreen = !isFullscreen
 
-        val headerParams =
-            header.layoutParams as LinearLayout.LayoutParams
-
         if (isFullscreen) {
 
+            // বাম পাশের তালিকা এবং উপরের Header লুকিয়ে যাবে
             leftPanel.visibility = View.GONE
+            header.visibility = View.GONE
             channelTitle.visibility = View.GONE
             status.visibility = View.GONE
 
-            headerParams.height = dp(42)
-            header.layoutParams = headerParams
-
-            headerSettings.layoutParams =
-                LinearLayout.LayoutParams(dp(125), dp(38))
-
+            // ভিডিও পুরো জায়গা নেবে
             val videoParams =
                 playerFrame.layoutParams as LinearLayout.LayoutParams
 
-            videoParams.bottomMargin = dp(12)
+            videoParams.height = 0
+            videoParams.weight = 1f
+            videoParams.bottomMargin = 0
             playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
@@ -1249,21 +1351,7 @@ class MainActivity : AppCompatActivity() {
 
         } else {
 
-            leftPanel.visibility = View.VISIBLE
-            channelTitle.visibility = View.VISIBLE
-            status.visibility = View.VISIBLE
-
-            headerParams.height = dp(55)
-            header.layoutParams = headerParams
-
-            headerSettings.layoutParams =
-                LinearLayout.LayoutParams(dp(125), dp(48))
-
-            val videoParams =
-                playerFrame.layoutParams as LinearLayout.LayoutParams
-
-            videoParams.bottomMargin = 0
-            playerFrame.layoutParams = videoParams
+            restoreNormalLayout()
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -1277,6 +1365,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.requestLayout()
+        rightPanel.requestLayout()
         playerFrame.requestLayout()
     }
 
