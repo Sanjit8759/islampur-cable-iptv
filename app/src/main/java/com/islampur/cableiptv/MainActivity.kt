@@ -84,7 +84,6 @@ class MainActivity : AppCompatActivity() {
         createPlayer()
 
         setContentView(homeRoot)
-
         loadPlaylist()
     }
 
@@ -138,21 +137,10 @@ class MainActivity : AppCompatActivity() {
             override fun onPlaybackStateChanged(state: Int) {
 
                 when (state) {
-                    Player.STATE_BUFFERING -> {
-                        status.text = "Buffering..."
-                    }
-
-                    Player.STATE_READY -> {
-                        updateStatus()
-                    }
-
-                    Player.STATE_ENDED -> {
-                        status.text = "Stream Ended"
-                    }
-
-                    Player.STATE_IDLE -> {
-                        // Waiting
-                    }
+                    Player.STATE_BUFFERING -> status.text = "Buffering..."
+                    Player.STATE_READY -> updateStatus()
+                    Player.STATE_ENDED -> status.text = "Stream Ended"
+                    Player.STATE_IDLE -> {}
                 }
             }
         })
@@ -178,10 +166,7 @@ class MainActivity : AppCompatActivity() {
         return GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(7).toFloat()
-
-            if (focused) {
-                setStroke(dp(3), Color.WHITE)
-            }
+            if (focused) setStroke(dp(3), Color.WHITE)
         }
     }
 
@@ -221,19 +206,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun createHomeScreen() {
 
-        val screenWidth =
-            resources.displayMetrics.widthPixels /
-                resources.displayMetrics.density
-
-        val screenHeight =
-            resources.displayMetrics.heightPixels /
-                resources.displayMetrics.density
-
-        val tileSize = minOf(
-            (screenWidth - 80f) / 3f,
-            screenHeight - 190f
-        ).toInt().coerceAtLeast(100)
-
         homeRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -249,7 +221,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            setPadding(dp(15), dp(8), dp(15), dp(8))
+            setPadding(dp(15), dp(5), dp(15), dp(5))
         }
 
         val title = makeLabel(
@@ -262,7 +234,7 @@ class MainActivity : AppCompatActivity() {
             title,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(75)
+                dp(65)
             )
         )
 
@@ -276,7 +248,7 @@ class MainActivity : AppCompatActivity() {
             subtitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(65)
+                dp(55)
             )
         )
 
@@ -289,7 +261,7 @@ class MainActivity : AppCompatActivity() {
             cardRow,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(tileSize)
+                dp(220)
             )
         )
 
@@ -298,8 +270,7 @@ class MainActivity : AppCompatActivity() {
             "LIVE TV",
             Color.rgb(0, 65, 145),
             Color.CYAN,
-            cardRow,
-            tileSize
+            cardRow
         ) {
             openSection("LIVE")
         }
@@ -309,8 +280,7 @@ class MainActivity : AppCompatActivity() {
             "RADIO",
             Color.rgb(0, 75, 35),
             Color.GREEN,
-            cardRow,
-            tileSize
+            cardRow
         ) {
             openSection("RADIO")
         }
@@ -320,8 +290,7 @@ class MainActivity : AppCompatActivity() {
             "CINEMA HALL",
             Color.rgb(65, 0, 105),
             Color.MAGENTA,
-            cardRow,
-            tileSize
+            cardRow
         ) {
             Toast.makeText(
                 this,
@@ -337,7 +306,6 @@ class MainActivity : AppCompatActivity() {
         color: Int,
         accent: Int,
         parent: LinearLayout,
-        tileSize: Int,
         action: () -> Unit
     ) {
 
@@ -349,18 +317,17 @@ class MainActivity : AppCompatActivity() {
 
             background = GradientDrawable().apply {
                 setColor(color)
-                cornerRadius = dp(5).toFloat()
+                cornerRadius = dp(8).toFloat()
                 setStroke(dp(2), accent)
             }
 
             setOnFocusChangeListener { view, focused ->
-
                 view.scaleX = if (focused) 1.03f else 1f
                 view.scaleY = if (focused) 1.03f else 1f
 
                 background = GradientDrawable().apply {
                     setColor(color)
-                    cornerRadius = dp(5).toFloat()
+                    cornerRadius = dp(8).toFloat()
                     setStroke(
                         dp(if (focused) 4 else 2),
                         if (focused) Color.WHITE else accent
@@ -368,16 +335,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            setOnClickListener {
-                action()
-            }
+            setOnClickListener { action() }
         }
 
-        val iconView = makeLabel(
-            icon,
-            42f,
-            Color.WHITE
-        )
+        val iconView = makeLabel(icon, 38f, Color.WHITE)
 
         card.addView(
             iconView,
@@ -388,32 +349,23 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        val titleView = makeLabel(
-            title,
-            15f,
-            Color.WHITE
-        )
+        val titleView = makeLabel(title, 14f, Color.WHITE)
 
         card.addView(
             titleView,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(48)
+                dp(42)
             )
         )
 
         val params = LinearLayout.LayoutParams(
             0,
-            dp(tileSize),
+            dp(220),
             1f
         )
 
-        params.setMargins(
-            dp(8),
-            dp(5),
-            dp(8),
-            dp(5)
-        )
+        params.setMargins(dp(8), dp(5), dp(8), dp(5))
 
         parent.addView(card, params)
     }
@@ -439,17 +391,39 @@ class MainActivity : AppCompatActivity() {
         } else {
 
             selectedGroup = "ALL"
-
-            // প্রথম LIVE TV চ্যানেল অটোমেটিক চালু
-            val firstLiveIndex = channels.indexOfFirst {
-                !it.group.equals("RADIO", true)
-            }
-
-            if (firstLiveIndex >= 0) {
-                playChannel(firstLiveIndex)
-            }
-
             showGroups()
+
+            // LIVE TV চাপলে প্রথম TV channel চালু হবে
+            startFirstLiveChannel()
+        }
+    }
+
+    private fun startFirstLiveChannel() {
+
+        val firstChannel = channels.indexOfFirst {
+            !it.group.equals("RADIO", true)
+        }
+
+        if (firstChannel >= 0) {
+
+            currentIndex = firstChannel
+            showingChannels = false
+
+            playChannel(currentIndex)
+
+            playerFrame.post {
+                if (!isFullscreen) {
+                    toggleFullscreen()
+                }
+            }
+
+        } else {
+
+            Toast.makeText(
+                this,
+                "TV Channel পাওয়া যায়নি",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -600,13 +574,8 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.END
 
                 setPadding(
-                    dp(5),
-                    dp(3),
-                    dp(55),
-                    dp(10)
+                    dp(5), dp(3), dp(55), dp(10)
                 )
-
-                setBackgroundColor(Color.TRANSPARENT)
 
                 addView(TextView(this@MainActivity).apply {
                     text = "ISLAMPUR CABLE"
@@ -615,12 +584,7 @@ class MainActivity : AppCompatActivity() {
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
                     includeFontPadding = false
-                    setShadowLayer(
-                        dp(3).toFloat(),
-                        1f,
-                        1f,
-                        Color.BLACK
-                    )
+                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
                 })
 
                 addView(TextView(this@MainActivity).apply {
@@ -630,12 +594,7 @@ class MainActivity : AppCompatActivity() {
                     setTypeface(null, Typeface.BOLD)
                     gravity = Gravity.END
                     includeFontPadding = false
-                    setShadowLayer(
-                        dp(3).toFloat(),
-                        1f,
-                        1f,
-                        Color.BLACK
-                    )
+                    setShadowLayer(dp(3).toFloat(), 1f, 1f, Color.BLACK)
                 })
             }
 
@@ -655,25 +614,14 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(Color.WHITE)
                 setBackgroundColor(Color.argb(170, 0, 0, 0))
                 isFocusable = true
-
-                setOnClickListener {
-                    showFrameSettings()
-                }
+                setOnClickListener { showFrameSettings() }
             }
 
             val settingsParams = FrameLayout.LayoutParams(
-                dp(55),
-                dp(48),
-                Gravity.TOP or Gravity.END
+                dp(55), dp(48), Gravity.TOP or Gravity.END
             )
 
-            settingsParams.setMargins(
-                dp(5),
-                dp(8),
-                dp(12),
-                dp(5)
-            )
-
+            settingsParams.setMargins(dp(5), dp(8), dp(12), dp(5))
             addView(videoSettings, settingsParams)
         }
 
@@ -729,13 +677,11 @@ class MainActivity : AppCompatActivity() {
                     if (e1 != null &&
                         kotlin.math.abs(e2.x - e1.x) > dp(80)
                     ) {
-
                         if (e2.x < e1.x) {
                             playNext()
                         } else {
                             playPrevious()
                         }
-
                         return true
                     }
 
@@ -755,7 +701,6 @@ class MainActivity : AppCompatActivity() {
         if (event.action == KeyEvent.ACTION_DOWN && isFullscreen) {
 
             when (event.keyCode) {
-
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     playNext()
                     return true
@@ -792,7 +737,6 @@ class MainActivity : AppCompatActivity() {
             .setSingleChoiceItems(options, selected) { dialog, which ->
 
                 when (which) {
-
                     0 -> {
                         currentFrameMode = "STRETCH"
                         playerView.resizeMode =
@@ -824,7 +768,6 @@ class MainActivity : AppCompatActivity() {
     private fun parsePlaylist(raw: String): MutableList<Channel> {
 
         val result = mutableListOf<Channel>()
-
         var name = ""
         var group = "Other"
 
@@ -894,11 +837,7 @@ class MainActivity : AppCompatActivity() {
 
                 connection.connectTimeout = 20000
                 connection.readTimeout = 30000
-
-                connection.setRequestProperty(
-                    "User-Agent",
-                    "Mozilla/5.0"
-                )
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
 
                 try {
 
@@ -934,11 +873,7 @@ class MainActivity : AppCompatActivity() {
 
             } catch (e: Exception) {
 
-                Log.e(
-                    "ISLAMPUR_IPTV",
-                    "Online playlist failed",
-                    e
-                )
+                Log.e("ISLAMPUR_IPTV", "Online playlist failed", e)
 
                 val savedPlaylist = getSharedPreferences(
                     backupPrefs,
@@ -948,11 +883,9 @@ class MainActivity : AppCompatActivity() {
                 if (!savedPlaylist.isNullOrBlank()) {
 
                     loadedChannels = parsePlaylist(savedPlaylist)
-
                     message = "Offline Backup Loaded"
 
                 } else {
-
                     message = "Playlist Loading Failed"
                 }
             }
@@ -972,19 +905,21 @@ class MainActivity : AppCompatActivity() {
                         !it.equals("ALL", true)
                     }
                     .sorted()
-                    .forEach {
-                        groups.add(it)
-                    }
+                    .forEach { groups.add(it) }
 
                 currentIndex = 0
                 selectedGroup = "ALL"
                 showingChannels = false
                 isFullscreen = false
 
-                status.text =
-                    "$message - ${channels.size} Channels"
+                status.text = "$message - ${channels.size} Channels"
 
-                setContentView(homeRoot)
+                if (currentSection == "LIVE") {
+                    showGroups()
+                    startFirstLiveChannel()
+                } else {
+                    setContentView(homeRoot)
+                }
 
                 if (loadedChannels.isEmpty()) {
                     Toast.makeText(
@@ -1028,7 +963,6 @@ class MainActivity : AppCompatActivity() {
                 background = focusBackground(false)
 
                 setOnFocusChangeListener { _, focused ->
-
                     background = focusBackground(focused)
 
                     if (focused) {
@@ -1049,12 +983,10 @@ class MainActivity : AppCompatActivity() {
             )
 
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
-
             groupList.addView(button, params)
         }
 
         groupList.post {
-
             if (groupList.childCount > 0) {
                 groupList.getChildAt(0).requestFocus()
             }
@@ -1074,7 +1006,6 @@ class MainActivity : AppCompatActivity() {
         } else {
 
             channels.filter { channel ->
-
                 !channel.group.equals("RADIO", true) &&
                 (
                     selectedGroup == "ALL" ||
@@ -1104,30 +1035,24 @@ class MainActivity : AppCompatActivity() {
 
         val backButton = Button(this).apply {
 
-            text =
-                if (currentSection == "RADIO") {
-                    "‹ BACK TO HOME"
-                } else {
-                    "‹ BACK TO GROUPS"
-                }
+            text = if (currentSection == "RADIO") {
+                "‹ BACK TO HOME"
+            } else {
+                "‹ BACK TO GROUPS"
+            }
 
             textSize = 14f
             isAllCaps = false
             setTextColor(Color.WHITE)
             isFocusable = true
-
             background = focusBackground(false)
 
             setOnFocusChangeListener { _, focused ->
                 background = focusBackground(focused)
-
-                if (focused) {
-                    listTitle.text = "BACK"
-                }
+                if (focused) listTitle.text = "BACK"
             }
 
             setOnClickListener {
-
                 if (currentSection == "RADIO") {
                     returnHome()
                 } else {
@@ -1158,13 +1083,7 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER_VERTICAL
 
-                setPadding(
-                    dp(12),
-                    dp(5),
-                    dp(5),
-                    dp(5)
-                )
-
+                setPadding(dp(12), dp(5), dp(5), dp(5))
                 isFocusable = true
 
                 background = focusBackground(
@@ -1173,15 +1092,13 @@ class MainActivity : AppCompatActivity() {
                 )
 
                 setOnFocusChangeListener { _, focused ->
-
                     background = focusBackground(
                         focused,
                         index == currentIndex
                     )
 
                     if (focused) {
-                        listTitle.text =
-                            "SELECTED: ${channel.name}"
+                        listTitle.text = "SELECTED: ${channel.name}"
                     }
                 }
 
@@ -1202,12 +1119,10 @@ class MainActivity : AppCompatActivity() {
             )
 
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
-
             channelList.addView(button, params)
         }
 
         channelList.post {
-
             if (channelList.childCount > 1) {
                 channelList.getChildAt(1).requestFocus()
             } else {
@@ -1225,7 +1140,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         currentIndex = index
-
         val channel = channels[index]
 
         channelTitle.text = channel.name
@@ -1246,22 +1160,14 @@ class MainActivity : AppCompatActivity() {
 
         } catch (e: Exception) {
 
-            Log.e(
-                "ISLAMPUR_IPTV",
-                "Channel Start Error",
-                e
-            )
-
+            Log.e("ISLAMPUR_IPTV", "Channel Start Error", e)
             status.text = "Unable to Play Channel"
         }
     }
 
     private fun updateStatus() {
 
-        if (channels.isNotEmpty() &&
-            currentIndex in channels.indices
-        ) {
-
+        if (channels.isNotEmpty() && currentIndex in channels.indices) {
             status.text =
                 "Playing: ${channels[currentIndex].name} " +
                 "(${currentIndex + 1}/${channels.size})"
@@ -1273,7 +1179,6 @@ class MainActivity : AppCompatActivity() {
     private fun playNext() {
 
         val filtered = getSectionChannels()
-
         if (filtered.isEmpty()) return
 
         val currentPosition = filtered.indexOfFirst {
@@ -1281,9 +1186,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val nextPosition =
-            if (currentPosition < 0 ||
-                currentPosition >= filtered.lastIndex
-            ) {
+            if (currentPosition < 0 || currentPosition >= filtered.lastIndex) {
                 0
             } else {
                 currentPosition + 1
@@ -1295,7 +1198,6 @@ class MainActivity : AppCompatActivity() {
     private fun playPrevious() {
 
         val filtered = getSectionChannels()
-
         if (filtered.isEmpty()) return
 
         val currentPosition = filtered.indexOfFirst {
@@ -1391,9 +1293,7 @@ class MainActivity : AppCompatActivity() {
 
             returnHome()
 
-        } else if (currentSection == "LIVE" &&
-            showingChannels
-        ) {
+        } else if (currentSection == "LIVE" && showingChannels) {
 
             showGroups()
 
