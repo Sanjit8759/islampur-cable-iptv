@@ -2,8 +2,6 @@
 package com.islampur.cableiptv
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -53,12 +51,9 @@ class MainActivity : AppCompatActivity() {
     private var showingChannels = false
     private var currentFrameMode = "STRETCH"
 
-    private var player: ExoPlayer? = null
+    private var autoPlayAttempts = 0
 
-    private val handler = Handler(Looper.getMainLooper())
-    private val failedChannels = mutableSetOf<Int>()
-    private var loadingTimeout: Runnable? = null
-    private var isTryingNext = false
+    private var player: ExoPlayer? = null
 
     private lateinit var homeRoot: LinearLayout
     private lateinit var root: LinearLayout
@@ -132,9 +127,30 @@ class MainActivity : AppCompatActivity() {
                     error
                 )
 
-                status.text = "Channel Error: ${channels.getOrNull(currentIndex)?.name ?: ""}"
+                val filtered = getSectionChannels()
 
-                tryNextAfterError()
+                if (
+                    currentSection == "LIVE" &&
+                    filtered.size > 1 &&
+                    autoPlayAttempts < filtered.size - 1
+                ) {
+                    autoPlayAttempts++
+
+                    status.text = "Channel failed. Trying next channel..."
+
+                    playerView.postDelayed({
+                        playNext()
+                    }, 1000)
+
+                } else {
+                    status.text = "Error: ${error.errorCodeName}"
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Channel চালু হচ্ছে না",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -145,8 +161,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     Player.STATE_READY -> {
-                        cancelLoadingTimeout()
-                        isTryingNext = false
+                        autoPlayAttempts = 0
                         updateStatus()
                     }
 
@@ -158,68 +173,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-    }
-
-    private fun cancelLoadingTimeout() {
-        loadingTimeout?.let { handler.removeCallbacks(it) }
-        loadingTimeout = null
-    }
-
-    private fun startLoadingTimeout(index: Int) {
-
-        cancelLoadingTimeout()
-
-        loadingTimeout = Runnable {
-            if (
-                currentIndex == index &&
-                player?.playbackState != Player.STATE_READY &&
-                !isTryingNext
-            ) {
-                Log.d("ISLAMPUR_IPTV", "Channel timeout: $index")
-                tryNextAfterError()
-            }
-        }
-
-        handler.postDelayed(loadingTimeout!!, 20000)
-    }
-
-    private fun tryNextAfterError() {
-
-        if (isTryingNext) return
-
-        isTryingNext = true
-        cancelLoadingTimeout()
-
-        failedChannels.add(currentIndex)
-
-        val filtered = getSectionChannels()
-
-        val nextChannel = filtered.firstOrNull { channel ->
-            val index = channels.indexOf(channel)
-            index !in failedChannels
-        }
-
-        if (nextChannel == null) {
-            status.text = "সব চ্যানেল চেষ্টা করা হয়েছে"
-            isTryingNext = false
-
-            Toast.makeText(
-                this,
-                "কোনও চ্যানেল চালু করা যাচ্ছে না",
-                Toast.LENGTH_LONG
-            ).show()
-
-            return
-        }
-
-        val nextIndex = channels.indexOf(nextChannel)
-
-        status.text = "পরের চ্যানেল চেষ্টা হচ্ছে: ${nextChannel.name}"
-
-        handler.postDelayed({
-            isTryingNext = false
-            playChannel(nextIndex, false)
-        }, 1200)
     }
 
     // ================= BASIC DESIGN =================
@@ -297,12 +250,12 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            setPadding(dp(25), dp(12), dp(25), dp(12))
+            setPadding(dp(15), dp(5), dp(15), dp(5))
         }
 
         val title = makeLabel(
             "📺 ISLAMPUR CABLE IPTV",
-            25f,
+            26f,
             Color.WHITE
         )
 
@@ -316,7 +269,7 @@ class MainActivity : AppCompatActivity() {
 
         val subtitle = makeLabel(
             "SELECT YOUR ENTERTAINMENT",
-            18f,
+            19f,
             Color.YELLOW
         )
 
@@ -337,7 +290,7 @@ class MainActivity : AppCompatActivity() {
             cardRow,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(185)
+                dp(175)
             )
         )
 
@@ -374,6 +327,20 @@ class MainActivity : AppCompatActivity() {
                 Toast.LENGTH_SHORT
             ).show()
         }
+
+        val footer = makeLabel(
+            "ISLAMPUR CABLE IPTV",
+            17f,
+            Color.WHITE
+        )
+
+        homeRoot.addView(
+            footer,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(45)
+            )
+        )
     }
 
     private fun addHomeButton(
@@ -412,10 +379,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            setOnClickListener { action() }
+            setOnClickListener {
+                action()
+            }
         }
 
-        val iconView = makeLabel(icon, 34f, Color.WHITE)
+        val iconView = makeLabel(
+            icon,
+            34f,
+            Color.WHITE
+        )
 
         card.addView(
             iconView,
@@ -426,7 +399,11 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        val titleView = makeLabel(title, 13f, Color.WHITE)
+        val titleView = makeLabel(
+            title,
+            13f,
+            Color.WHITE
+        )
 
         card.addView(
             titleView,
@@ -436,13 +413,19 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
+        // তিনটি বক্স সমান Square
         val params = LinearLayout.LayoutParams(
             0,
             dp(155),
             1f
         )
 
-        params.setMargins(dp(12), dp(8), dp(12), dp(8))
+        params.setMargins(
+            dp(8),
+            dp(5),
+            dp(8),
+            dp(5)
+        )
 
         parent.addView(card, params)
     }
@@ -453,7 +436,7 @@ class MainActivity : AppCompatActivity() {
 
         currentSection = section
         isFullscreen = false
-        failedChannels.clear()
+        autoPlayAttempts = 0
 
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -470,6 +453,7 @@ class MainActivity : AppCompatActivity() {
 
             selectedGroup = "ALL"
             showGroups()
+
             startFirstLiveChannel()
         }
     }
@@ -482,9 +466,9 @@ class MainActivity : AppCompatActivity() {
 
         if (firstChannel >= 0) {
 
-            failedChannels.clear()
             currentIndex = firstChannel
             showingChannels = false
+            autoPlayAttempts = 0
 
             playChannel(currentIndex)
 
@@ -505,8 +489,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun returnHome() {
-
-        cancelLoadingTimeout()
 
         isFullscreen = false
         currentSection = "HOME"
@@ -997,8 +979,6 @@ class MainActivity : AppCompatActivity() {
                 if (currentSection == "LIVE") {
                     showGroups()
                     startFirstLiveChannel()
-                } else if (currentSection == "RADIO") {
-                    showChannels()
                 } else {
                     setContentView(homeRoot)
                 }
@@ -1022,11 +1002,6 @@ class MainActivity : AppCompatActivity() {
         currentSection = "LIVE"
         showingChannels = false
         isFullscreen = false
-
-        header.visibility = View.VISIBLE
-        status.visibility = View.VISIBLE
-        channelTitle.visibility = View.VISIBLE
-        leftPanel.visibility = View.VISIBLE
 
         setContentView(root)
 
@@ -1106,11 +1081,6 @@ class MainActivity : AppCompatActivity() {
 
         showingChannels = true
         isFullscreen = false
-
-        header.visibility = View.VISIBLE
-        status.visibility = View.VISIBLE
-        channelTitle.visibility = View.VISIBLE
-        leftPanel.visibility = View.VISIBLE
 
         setContentView(root)
 
@@ -1196,8 +1166,8 @@ class MainActivity : AppCompatActivity() {
 
                 setOnClickListener {
 
-                    failedChannels.clear()
                     currentIndex = index
+                    autoPlayAttempts = 0
                     playChannel(currentIndex)
 
                     if (!isFullscreen) {
@@ -1226,22 +1196,13 @@ class MainActivity : AppCompatActivity() {
 
     // ================= PLAY CHANNEL =================
 
-    private fun playChannel(
-        index: Int,
-        resetFailures: Boolean = true
-    ) {
+    private fun playChannel(index: Int) {
 
         if (channels.isEmpty() || index !in channels.indices) {
             return
         }
 
-        if (resetFailures) {
-            failedChannels.clear()
-        }
-
-        cancelLoadingTimeout()
         currentIndex = index
-
         val channel = channels[index]
 
         channelTitle.text = channel.name
@@ -1260,13 +1221,10 @@ class MainActivity : AppCompatActivity() {
             player?.prepare()
             player?.play()
 
-            startLoadingTimeout(index)
-
         } catch (e: Exception) {
 
             Log.e("ISLAMPUR_IPTV", "Channel Start Error", e)
             status.text = "Unable to Play Channel"
-            tryNextAfterError()
         }
     }
 
@@ -1286,8 +1244,6 @@ class MainActivity : AppCompatActivity() {
         val filtered = getSectionChannels()
         if (filtered.isEmpty()) return
 
-        failedChannels.clear()
-
         val currentPosition = filtered.indexOfFirst {
             channels.indexOf(it) == currentIndex
         }
@@ -1306,8 +1262,6 @@ class MainActivity : AppCompatActivity() {
 
         val filtered = getSectionChannels()
         if (filtered.isEmpty()) return
-
-        failedChannels.clear()
 
         val currentPosition = filtered.indexOfFirst {
             channels.indexOf(it) == currentIndex
@@ -1329,11 +1283,26 @@ class MainActivity : AppCompatActivity() {
 
         isFullscreen = !isFullscreen
 
+        val headerParams =
+            header.layoutParams as LinearLayout.LayoutParams
+
         if (isFullscreen) {
 
             leftPanel.visibility = View.GONE
-            header.visibility = View.GONE
+            channelTitle.visibility = View.GONE
             status.visibility = View.GONE
+
+            headerParams.height = dp(42)
+            header.layoutParams = headerParams
+
+            headerSettings.layoutParams =
+                LinearLayout.LayoutParams(dp(125), dp(38))
+
+            val videoParams =
+                playerFrame.layoutParams as LinearLayout.LayoutParams
+
+            videoParams.bottomMargin = dp(12)
+            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -1344,8 +1313,20 @@ class MainActivity : AppCompatActivity() {
         } else {
 
             leftPanel.visibility = View.VISIBLE
-            header.visibility = View.VISIBLE
+            channelTitle.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
+
+            headerParams.height = dp(55)
+            header.layoutParams = headerParams
+
+            headerSettings.layoutParams =
+                LinearLayout.LayoutParams(dp(125), dp(48))
+
+            val videoParams =
+                playerFrame.layoutParams as LinearLayout.LayoutParams
+
+            videoParams.bottomMargin = 0
+            playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
@@ -1392,9 +1373,6 @@ class MainActivity : AppCompatActivity() {
     // ================= DESTROY =================
 
     override fun onDestroy() {
-
-        cancelLoadingTimeout()
-        handler.removeCallbacksAndMessages(null)
 
         playerView.player = null
 
