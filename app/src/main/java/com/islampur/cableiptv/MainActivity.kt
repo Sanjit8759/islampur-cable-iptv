@@ -333,6 +333,21 @@ class MainActivity : AppCompatActivity() {
             openYourShow()
         }
 
+        // HOME PAGE SETTINGS BUTTON
+        val homeSettings = makeButton("⚙ SETTINGS") {
+            showFrameSettings()
+        }
+
+        val settingsParams = LinearLayout.LayoutParams(
+            dp(220),
+            dp(55)
+        )
+
+        settingsParams.gravity = Gravity.CENTER
+        settingsParams.setMargins(0, dp(8), 0, dp(8))
+
+        homeRoot.addView(homeSettings, settingsParams)
+
         val footer = makeLabel(
             "ISLAMPUR CABLE IPTV",
             17f,
@@ -440,6 +455,7 @@ class MainActivity : AppCompatActivity() {
 
         leftPanel.visibility = View.GONE
         header.visibility = View.GONE
+        headerSettings.visibility = View.GONE
         status.visibility = View.GONE
         playerView.visibility = View.GONE
         watermarkView.visibility = View.GONE
@@ -493,10 +509,11 @@ class MainActivity : AppCompatActivity() {
 
         leftPanel.visibility = View.VISIBLE
         header.visibility = View.VISIBLE
+        headerSettings.visibility = View.GONE
         status.visibility = View.VISIBLE
         playerView.visibility = View.VISIBLE
         watermarkView.visibility = View.VISIBLE
-        videoSettingsView.visibility = View.VISIBLE
+        videoSettingsView.visibility = View.GONE
 
         currentSection = "HOME"
         isFullscreen = false
@@ -515,6 +532,14 @@ class MainActivity : AppCompatActivity() {
         currentSection = section
         isFullscreen = false
         autoPlayAttempts = 0
+
+        // Player screen-এ Settings লুকানো
+        headerSettings.visibility = View.GONE
+        videoSettingsView.visibility = View.GONE
+
+        header.visibility = View.VISIBLE
+        channelTitle.visibility = View.VISIBLE
+        status.visibility = View.VISIBLE
 
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -1360,25 +1385,21 @@ class MainActivity : AppCompatActivity() {
 
         isFullscreen = !isFullscreen
 
-        val headerParams =
-            header.layoutParams as LinearLayout.LayoutParams
+        // Player screen-এ Settings কখনো দেখাবে না
+        headerSettings.visibility = View.GONE
+        videoSettingsView.visibility = View.GONE
 
         if (isFullscreen) {
 
             leftPanel.visibility = View.GONE
+            header.visibility = View.GONE
             channelTitle.visibility = View.GONE
             status.visibility = View.GONE
-
-            headerParams.height = dp(42)
-            header.layoutParams = headerParams
-
-            headerSettings.layoutParams =
-                LinearLayout.LayoutParams(dp(125), dp(38))
 
             val videoParams =
                 playerFrame.layoutParams as LinearLayout.LayoutParams
 
-            videoParams.bottomMargin = dp(12)
+            videoParams.bottomMargin = 0
             playerFrame.layoutParams = videoParams
 
             @Suppress("DEPRECATION")
@@ -1390,14 +1411,9 @@ class MainActivity : AppCompatActivity() {
         } else {
 
             leftPanel.visibility = View.VISIBLE
+            header.visibility = View.VISIBLE
             channelTitle.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
-
-            headerParams.height = dp(55)
-            header.layoutParams = headerParams
-
-            headerSettings.layoutParams =
-                LinearLayout.LayoutParams(dp(125), dp(48))
 
             val videoParams =
                 playerFrame.layoutParams as LinearLayout.LayoutParams
