@@ -221,15 +221,39 @@ class MainActivity : AppCompatActivity() {
 
     private fun createHomeScreen() {
 
+        val screenWidth =
+            resources.displayMetrics.widthPixels /
+            resources.displayMetrics.density
+
+        val screenHeight =
+            resources.displayMetrics.heightPixels /
+            resources.displayMetrics.density
+
+        val tileSize = minOf(
+            (screenWidth - 80f) / 3f,
+            screenHeight - 190f
+        ).toInt().coerceAtLeast(100)
+
         homeRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(navy)
-            setPadding(dp(25), dp(20), dp(25), dp(20))
+
+            setBackground(
+                GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(
+                        Color.rgb(3, 15, 55),
+                        Color.rgb(0, 35, 105),
+                        Color.rgb(2, 10, 40)
+                    )
+                )
+            )
+
+            setPadding(dp(15), dp(8), dp(15), dp(8))
         }
 
         val title = makeLabel(
-            "ISLAMPUR CABLE IPTV",
+            "📺 ISLAMPUR CABLE IPTV",
             26f,
             Color.WHITE
         )
@@ -238,13 +262,13 @@ class MainActivity : AppCompatActivity() {
             title,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(90)
+                dp(75)
             )
         )
 
         val subtitle = makeLabel(
             "SELECT YOUR ENTERTAINMENT",
-            15f,
+            19f,
             Color.YELLOW
         )
 
@@ -252,24 +276,49 @@ class MainActivity : AppCompatActivity() {
             subtitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(55)
+                dp(65)
             )
         )
 
-        addHomeButton("📺  LIVE TV", blue) {
+        val cardRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+
+        homeRoot.addView(
+            cardRow,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(tileSize)
+            )
+        )
+
+        addHomeButton(
+            "📺",
+            "LIVE TV",
+            Color.rgb(0, 65, 145),
+            Color.CYAN,
+            cardRow
+        ) {
             openSection("LIVE")
         }
 
         addHomeButton(
-            "📻  RADIO",
-            Color.rgb(20, 110, 70)
+            "📻",
+            "RADIO",
+            Color.rgb(0, 75, 35),
+            Color.GREEN,
+            cardRow
         ) {
             openSection("RADIO")
         }
 
         addHomeButton(
-            "🎬  CINEMA HALL",
-            Color.rgb(100, 55, 140)
+            "🎬",
+            "CINEMA HALL",
+            Color.rgb(65, 0, 105),
+            Color.MAGENTA,
+            cardRow
         ) {
             Toast.makeText(
                 this,
@@ -280,35 +329,88 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addHomeButton(
+        icon: String,
         title: String,
         color: Int,
+        accent: Int,
+        parent: LinearLayout,
         action: () -> Unit
     ) {
 
-        val button = Button(this).apply {
-            text = title
-            textSize = 21f
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            setBackgroundColor(color)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
             isFocusable = true
-            setOnClickListener { action() }
+            isFocusableInTouchMode = true
+
+            background = GradientDrawable().apply {
+                setColor(color)
+                cornerRadius = dp(16).toFloat()
+                setStroke(dp(2), accent)
+            }
+
+            setOnFocusChangeListener { view, focused ->
+                view.scaleX = if (focused) 1.04f else 1f
+                view.scaleY = if (focused) 1.04f else 1f
+
+                background = GradientDrawable().apply {
+                    setColor(color)
+                    cornerRadius = dp(16).toFloat()
+                    setStroke(
+                        dp(if (focused) 4 else 2),
+                        if (focused) Color.WHITE else accent
+                    )
+                }
+            }
+
+            setOnClickListener {
+                action()
+            }
         }
 
+        val iconView = makeLabel(
+            icon,
+            42f,
+            Color.WHITE
+        )
+
+        card.addView(
+            iconView,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
+
+        val titleView = makeLabel(
+            title,
+            15f,
+            Color.WHITE
+        )
+
+        card.addView(
+            titleView,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(48)
+            )
+        )
+
         val params = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(85)
+            0,
+            dp((resources.displayMetrics.heightPixels /
+                resources.displayMetrics.density - 190f)
+                .coerceAtLeast(100f).coerceAtMost(500f).toInt()),
+            1f
         )
 
-        params.setMargins(
-            dp(5),
-            dp(10),
-            dp(5),
-            dp(10)
-        )
+        params.setMargins(dp(5), dp(4), dp(5), dp(4))
 
-        homeRoot.addView(button, params)
+        parent.addView(card, params)
     }
+
+    // ================= OPEN SECTION =================
 
     private fun openSection(section: String) {
 
@@ -414,7 +516,11 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
+        channelTitle = makeLabel(
+            "LIVE TV PLAYER",
+            18f,
+            Color.WHITE
+        )
 
         header.addView(
             channelTitle,
@@ -438,7 +544,11 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        status = makeLabel("Loading Playlist...", 14f, Color.YELLOW)
+        status = makeLabel(
+            "Loading Playlist...",
+            14f,
+            Color.YELLOW
+        )
 
         rightPanel.addView(
             status,
@@ -867,6 +977,7 @@ class MainActivity : AppCompatActivity() {
 
         currentSection = "LIVE"
         showingChannels = false
+        isFullscreen = false
 
         setContentView(root)
 
@@ -949,6 +1060,7 @@ class MainActivity : AppCompatActivity() {
     private fun showChannels() {
 
         showingChannels = true
+        isFullscreen = false
 
         setContentView(root)
 
