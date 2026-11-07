@@ -298,8 +298,8 @@ class MainActivity : AppCompatActivity() {
             "LIVE TV",
             Color.rgb(0, 65, 145),
             Color.CYAN,
-            tileSize,
-            cardRow
+            cardRow,
+            tileSize
         ) {
             openSection("LIVE")
         }
@@ -309,8 +309,8 @@ class MainActivity : AppCompatActivity() {
             "RADIO",
             Color.rgb(0, 75, 35),
             Color.GREEN,
-            tileSize,
-            cardRow
+            cardRow,
+            tileSize
         ) {
             openSection("RADIO")
         }
@@ -320,8 +320,8 @@ class MainActivity : AppCompatActivity() {
             "CINEMA HALL",
             Color.rgb(65, 0, 105),
             Color.MAGENTA,
-            tileSize,
-            cardRow
+            cardRow,
+            tileSize
         ) {
             Toast.makeText(
                 this,
@@ -336,8 +336,8 @@ class MainActivity : AppCompatActivity() {
         title: String,
         color: Int,
         accent: Int,
-        tileSize: Int,
         parent: LinearLayout,
+        tileSize: Int,
         action: () -> Unit
     ) {
 
@@ -349,18 +349,18 @@ class MainActivity : AppCompatActivity() {
 
             background = GradientDrawable().apply {
                 setColor(color)
-                cornerRadius = dp(16).toFloat()
+                cornerRadius = dp(5).toFloat()
                 setStroke(dp(2), accent)
             }
 
             setOnFocusChangeListener { view, focused ->
 
-                view.scaleX = if (focused) 1.04f else 1f
-                view.scaleY = if (focused) 1.04f else 1f
+                view.scaleX = if (focused) 1.03f else 1f
+                view.scaleY = if (focused) 1.03f else 1f
 
                 background = GradientDrawable().apply {
                     setColor(color)
-                    cornerRadius = dp(16).toFloat()
+                    cornerRadius = dp(5).toFloat()
                     setStroke(
                         dp(if (focused) 4 else 2),
                         if (focused) Color.WHITE else accent
@@ -408,7 +408,12 @@ class MainActivity : AppCompatActivity() {
             1f
         )
 
-        params.setMargins(dp(5), dp(4), dp(5), dp(4))
+        params.setMargins(
+            dp(8),
+            dp(5),
+            dp(8),
+            dp(5)
+        )
 
         parent.addView(card, params)
     }
@@ -434,6 +439,16 @@ class MainActivity : AppCompatActivity() {
         } else {
 
             selectedGroup = "ALL"
+
+            // প্রথম LIVE TV চ্যানেল অটোমেটিক চালু
+            val firstLiveIndex = channels.indexOfFirst {
+                !it.group.equals("RADIO", true)
+            }
+
+            if (firstLiveIndex >= 0) {
+                playChannel(firstLiveIndex)
+            }
+
             showGroups()
         }
     }
@@ -954,7 +969,7 @@ class MainActivity : AppCompatActivity() {
                     .distinct()
                     .filter {
                         !it.equals("RADIO", true) &&
-                            !it.equals("ALL", true)
+                        !it.equals("ALL", true)
                     }
                     .sorted()
                     .forEach {
@@ -1061,10 +1076,10 @@ class MainActivity : AppCompatActivity() {
             channels.filter { channel ->
 
                 !channel.group.equals("RADIO", true) &&
-                    (
-                        selectedGroup == "ALL" ||
-                            channel.group.equals(selectedGroup, true)
-                        )
+                (
+                    selectedGroup == "ALL" ||
+                    channel.group.equals(selectedGroup, true)
+                )
             }
         }
     }
@@ -1249,7 +1264,7 @@ class MainActivity : AppCompatActivity() {
 
             status.text =
                 "Playing: ${channels[currentIndex].name} " +
-                    "(${currentIndex + 1}/${channels.size})"
+                "(${currentIndex + 1}/${channels.size})"
         }
     }
 
@@ -1327,8 +1342,8 @@ class MainActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility =
                 View.SYSTEM_UI_FLAG_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
         } else {
 
