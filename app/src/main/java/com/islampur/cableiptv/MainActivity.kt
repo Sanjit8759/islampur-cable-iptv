@@ -12,6 +12,9 @@ import android.view.MotionEvent
 import android.view.GestureDetector
 import android.view.View
 import android.view.WindowManager
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.*
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -34,6 +37,10 @@ class MainActivity : AppCompatActivity() {
     private val backupPrefs = "IPTV_BACKUP"
     private val backupKey = "saved_playlist"
 
+    // YOUR SHOW - Twitch channel website
+    private val twitchPage =
+        "https://sanjit8759.github.io/islampur-cable-iptv/"
+
     data class Channel(
         val name: String,
         val url: String,
@@ -50,10 +57,10 @@ class MainActivity : AppCompatActivity() {
     private var isFullscreen = false
     private var showingChannels = false
     private var currentFrameMode = "STRETCH"
-
     private var autoPlayAttempts = 0
 
     private var player: ExoPlayer? = null
+    private var twitchWebView: WebView? = null
 
     private lateinit var homeRoot: LinearLayout
     private lateinit var root: LinearLayout
@@ -69,6 +76,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerFrame: FrameLayout
     private lateinit var status: TextView
     private lateinit var channelTitle: TextView
+    private lateinit var watermarkView: View
+    private lateinit var videoSettingsView: View
     private lateinit var videoGesture: GestureDetector
 
     private val navy = Color.rgb(12, 20, 38)
@@ -316,16 +325,12 @@ class MainActivity : AppCompatActivity() {
 
         addHomeButton(
             "🎬",
-            "CINEMA HALL",
+            "YOUR SHOW",
             Color.rgb(65, 0, 105),
             Color.MAGENTA,
             cardRow
         ) {
-            Toast.makeText(
-                this,
-                "Cinema Hall Coming Soon",
-                Toast.LENGTH_SHORT
-            ).show()
+            openYourShow()
         }
 
         val footer = makeLabel(
@@ -384,11 +389,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val iconView = makeLabel(
-            icon,
-            34f,
-            Color.WHITE
-        )
+        val iconView = makeLabel(icon, 34f, Color.WHITE)
 
         card.addView(
             iconView,
@@ -399,11 +400,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        val titleView = makeLabel(
-            title,
-            13f,
-            Color.WHITE
-        )
+        val titleView = makeLabel(title, 13f, Color.WHITE)
 
         card.addView(
             titleView,
@@ -413,21 +410,102 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // তিনটি বক্স সমান Square
         val params = LinearLayout.LayoutParams(
             0,
             dp(155),
             1f
         )
 
-        params.setMargins(
-            dp(8),
-            dp(5),
-            dp(8),
-            dp(5)
-        )
-
+        params.setMargins(dp(8), dp(5), dp(8), dp(5))
         parent.addView(card, params)
+    }
+
+    // ================= YOUR SHOW =================
+
+    private fun openYourShow() {
+
+        currentSection = "SHOW"
+        isFullscreen = false
+        showingChannels = false
+
+        player?.pause()
+
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+
+        setContentView(root)
+
+        leftPanel.visibility = View.GONE
+        header.visibility = View.GONE
+        status.visibility = View.GONE
+        playerView.visibility = View.GONE
+        watermarkView.visibility = View.GONE
+        videoSettingsView.visibility = View.GONE
+
+        playerFrame.visibility = View.VISIBLE
+
+        if (twitchWebView == null) {
+
+            twitchWebView = WebView(this).apply {
+
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = true
+                settings.loadsImagesAutomatically = true
+                settings.javaScriptCanOpenWindowsAutomatically = true
+
+                webViewClient = WebViewClient()
+                webChromeClient = WebChromeClient()
+
+                setBackgroundColor(Color.BLACK)
+            }
+        }
+
+        val web = twitchWebView!!
+
+        if (web.parent == null) {
+            playerFrame.addView(
+                web,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+
+        web.visibility = View.VISIBLE
+
+        if (web.url.isNullOrBlank()) {
+            web.loadUrl(twitchPage)
+        }
+    }
+
+    private fun closeYourShow() {
+
+        twitchWebView?.let { web ->
+            web.stopLoading()
+            web.visibility = View.GONE
+            playerFrame.removeView(web)
+        }
+
+        leftPanel.visibility = View.VISIBLE
+        header.visibility = View.VISIBLE
+        status.visibility = View.VISIBLE
+        playerView.visibility = View.VISIBLE
+        watermarkView.visibility = View.VISIBLE
+        videoSettingsView.visibility = View.VISIBLE
+
+        currentSection = "HOME"
+        isFullscreen = false
+
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_VISIBLE
+
+        setContentView(homeRoot)
     }
 
     // ================= OPEN SECTION =================
@@ -445,15 +523,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
 
         if (section == "RADIO") {
-
             selectedGroup = "RADIO"
             showChannels()
-
         } else {
-
             selectedGroup = "ALL"
             showGroups()
-
             startFirstLiveChannel()
         }
     }
@@ -569,11 +643,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        channelTitle = makeLabel(
-            "LIVE TV PLAYER",
-            18f,
-            Color.WHITE
-        )
+        channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
 
         header.addView(
             channelTitle,
@@ -597,11 +667,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        status = makeLabel(
-            "Loading Playlist...",
-            14f,
-            Color.YELLOW
-        )
+        status = makeLabel("Loading Playlist...", 14f, Color.YELLOW)
 
         rightPanel.addView(
             status,
@@ -634,9 +700,7 @@ class MainActivity : AppCompatActivity() {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
 
-                setPadding(
-                    dp(5), dp(3), dp(55), dp(10)
-                )
+                setPadding(dp(5), dp(3), dp(55), dp(10))
 
                 addView(TextView(this@MainActivity).apply {
                     text = "ISLAMPUR CABLE"
@@ -659,8 +723,10 @@ class MainActivity : AppCompatActivity() {
                 })
             }
 
+            watermarkView = watermark
+
             addView(
-                watermark,
+                watermarkView,
                 FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -678,12 +744,14 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener { showFrameSettings() }
             }
 
+            videoSettingsView = videoSettings
+
             val settingsParams = FrameLayout.LayoutParams(
                 dp(55), dp(48), Gravity.TOP or Gravity.END
             )
 
             settingsParams.setMargins(dp(5), dp(8), dp(12), dp(5))
-            addView(videoSettings, settingsParams)
+            addView(videoSettingsView, settingsParams)
         }
 
         rightPanel.addView(
@@ -759,6 +827,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+
+        if (
+            event.action == KeyEvent.ACTION_DOWN &&
+            currentSection == "SHOW" &&
+            event.keyCode == KeyEvent.KEYCODE_BACK
+        ) {
+            closeYourShow()
+            return true
+        }
 
         if (event.action == KeyEvent.ACTION_DOWN && isFullscreen) {
 
@@ -979,7 +1056,7 @@ class MainActivity : AppCompatActivity() {
                 if (currentSection == "LIVE") {
                     showGroups()
                     startFirstLiveChannel()
-                } else {
+                } else if (currentSection != "SHOW") {
                     setContentView(homeRoot)
                 }
 
@@ -1348,7 +1425,11 @@ class MainActivity : AppCompatActivity() {
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
 
-        if (isFullscreen) {
+        if (currentSection == "SHOW") {
+
+            closeYourShow()
+
+        } else if (isFullscreen) {
 
             toggleFullscreen()
 
@@ -1373,6 +1454,14 @@ class MainActivity : AppCompatActivity() {
     // ================= DESTROY =================
 
     override fun onDestroy() {
+
+        twitchWebView?.let { web ->
+            web.stopLoading()
+            web.loadUrl("about:blank")
+            web.destroy()
+        }
+
+        twitchWebView = null
 
         playerView.player = null
 
