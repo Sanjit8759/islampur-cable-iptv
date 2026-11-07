@@ -45,12 +45,15 @@ class MainActivity : AppCompatActivity() {
 
     private var currentIndex = 0
     private var selectedGroup = "ALL"
+    private var currentSection = "HOME"
+
     private var isFullscreen = false
     private var showingChannels = false
     private var currentFrameMode = "STRETCH"
 
     private var player: ExoPlayer? = null
 
+    private lateinit var homeRoot: LinearLayout
     private lateinit var root: LinearLayout
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
@@ -76,12 +79,16 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         createLayout()
+        createHomeScreen()
         setupGestures()
         createPlayer()
 
-        // Every app launch refreshes the playlist
+        setContentView(homeRoot)
+
         loadPlaylist()
     }
+
+    // ================= PLAYER =================
 
     private fun createPlayer() {
 
@@ -151,6 +158,8 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    // ================= BASIC DESIGN =================
+
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
     }
@@ -175,6 +184,169 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun makeLabel(
+        text: String,
+        size: Float,
+        color: Int
+    ): TextView {
+
+        return TextView(this).apply {
+            this.text = text
+            textSize = size
+            setTextColor(color)
+            gravity = Gravity.CENTER
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+        }
+    }
+
+    private fun makeButton(
+        text: String,
+        action: () -> Unit
+    ): Button {
+
+        return Button(this).apply {
+            this.text = text
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            setBackgroundColor(blue)
+            isFocusable = true
+            setOnClickListener { action() }
+        }
+    }
+
+    // ================= HOME SCREEN =================
+
+    private fun createHomeScreen() {
+
+        homeRoot = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(navy)
+            setPadding(dp(25), dp(20), dp(25), dp(20))
+        }
+
+        val title = makeLabel(
+            "ISLAMPUR CABLE IPTV",
+            26f,
+            Color.WHITE
+        )
+
+        homeRoot.addView(
+            title,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(90)
+            )
+        )
+
+        val subtitle = makeLabel(
+            "SELECT YOUR ENTERTAINMENT",
+            15f,
+            Color.YELLOW
+        )
+
+        homeRoot.addView(
+            subtitle,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(55)
+            )
+        )
+
+        addHomeButton("📺  LIVE TV", blue) {
+            openSection("LIVE")
+        }
+
+        addHomeButton(
+            "📻  RADIO",
+            Color.rgb(20, 110, 70)
+        ) {
+            openSection("RADIO")
+        }
+
+        addHomeButton(
+            "🎬  CINEMA HALL",
+            Color.rgb(100, 55, 140)
+        ) {
+            Toast.makeText(
+                this,
+                "Cinema Hall Coming Soon",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun addHomeButton(
+        title: String,
+        color: Int,
+        action: () -> Unit
+    ) {
+
+        val button = Button(this).apply {
+            text = title
+            textSize = 21f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            setBackgroundColor(color)
+            isFocusable = true
+            setOnClickListener { action() }
+        }
+
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(85)
+        )
+
+        params.setMargins(
+            dp(5),
+            dp(10),
+            dp(5),
+            dp(10)
+        )
+
+        homeRoot.addView(button, params)
+    }
+
+    private fun openSection(section: String) {
+
+        currentSection = section
+        isFullscreen = false
+
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_VISIBLE
+
+        setContentView(root)
+
+        if (section == "RADIO") {
+
+            selectedGroup = "RADIO"
+            showChannels()
+
+        } else {
+
+            selectedGroup = "ALL"
+            showGroups()
+        }
+    }
+
+    private fun returnHome() {
+
+        isFullscreen = false
+        currentSection = "HOME"
+        showingChannels = false
+
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_VISIBLE
+
+        setContentView(homeRoot)
+    }
+
+    // ================= MAIN PLAYER LAYOUT =================
 
     private fun createLayout() {
 
@@ -402,9 +574,9 @@ class MainActivity : AppCompatActivity() {
                 1f
             )
         )
-
-        setContentView(root)
     }
+
+    // ================= GESTURES =================
 
     private fun setupGestures() {
 
@@ -471,37 +643,7 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun makeLabel(
-        text: String,
-        size: Float,
-        color: Int
-    ): TextView {
-
-        return TextView(this).apply {
-            this.text = text
-            textSize = size
-            setTextColor(color)
-            gravity = Gravity.CENTER
-            setTypeface(null, Typeface.BOLD)
-            setPadding(dp(5), dp(5), dp(5), dp(5))
-        }
-    }
-
-    private fun makeButton(
-        text: String,
-        action: () -> Unit
-    ): Button {
-
-        return Button(this).apply {
-            this.text = text
-            textSize = 13f
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            setBackgroundColor(blue)
-            isFocusable = true
-            setOnClickListener { action() }
-        }
-    }
+    // ================= FRAME SETTINGS =================
 
     private fun showFrameSettings() {
 
@@ -549,7 +691,8 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // Convert M3U text into channels
+    // ================= PLAYLIST PARSER =================
+
     private fun parsePlaylist(raw: String): MutableList<Channel> {
 
         val result = mutableListOf<Channel>()
@@ -598,10 +741,9 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
-    // Automatic online refresh with offline backup
-    private fun loadPlaylist() {
+    // ================= LOAD PLAYLIST =================
 
-        status.text = "Refreshing Playlist..."
+    private fun loadPlaylist() {
 
         Thread {
 
@@ -615,6 +757,7 @@ class MainActivity : AppCompatActivity() {
 
                 connection.connectTimeout = 20000
                 connection.readTimeout = 30000
+
                 connection.setRequestProperty(
                     "User-Agent",
                     "Mozilla/5.0"
@@ -639,7 +782,6 @@ class MainActivity : AppCompatActivity() {
                         throw Exception("Playlist is empty")
                     }
 
-                    // Save only a successfully loaded playlist
                     getSharedPreferences(
                         backupPrefs,
                         MODE_PRIVATE
@@ -661,7 +803,6 @@ class MainActivity : AppCompatActivity() {
                     e
                 )
 
-                // Load last saved playlist if online refresh fails
                 val savedPlaylist = getSharedPreferences(
                     backupPrefs,
                     MODE_PRIVATE
@@ -681,11 +822,6 @@ class MainActivity : AppCompatActivity() {
 
             runOnUiThread {
 
-                if (loadedChannels.isEmpty()) {
-                    status.text = message
-                    return@runOnUiThread
-                }
-
                 channels.clear()
                 channels.addAll(loadedChannels)
 
@@ -694,38 +830,47 @@ class MainActivity : AppCompatActivity() {
 
                 channels.map { it.group }
                     .distinct()
+                    .filter {
+                        !it.equals("RADIO", true) &&
+                        !it.equals("ALL", true)
+                    }
                     .sorted()
                     .forEach {
-
-                        if (!it.equals("ALL", true)) {
-                            groups.add(it)
-                        }
+                        groups.add(it)
                     }
 
                 currentIndex = 0
                 selectedGroup = "ALL"
                 showingChannels = false
-
-                showGroups()
-                playChannel(currentIndex)
+                isFullscreen = false
 
                 status.text =
                     "$message - ${channels.size} Channels"
 
-                root.postDelayed({
-                    if (!isFullscreen) {
-                        toggleFullscreen()
-                    }
-                }, 1500)
+                setContentView(homeRoot)
+
+                if (loadedChannels.isEmpty()) {
+                    Toast.makeText(
+                        this,
+                        message,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
 
         }.start()
     }
 
+    // ================= GROUP LIST =================
+
     private fun showGroups() {
 
+        currentSection = "LIVE"
         showingChannels = false
-        listTitle.text = "GROUPS - রিমোট দিয়ে নির্বাচন করুন"
+
+        setContentView(root)
+
+        listTitle.text = "LIVE TV GROUPS"
 
         listScroll.removeAllViews()
         listScroll.addView(groupList)
@@ -778,10 +923,41 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ================= CHANNEL LIST =================
+
+    private fun getSectionChannels(): List<Channel> {
+
+        return if (currentSection == "RADIO") {
+
+            channels.filter {
+                it.group.equals("RADIO", true)
+            }
+
+        } else {
+
+            channels.filter { channel ->
+
+                !channel.group.equals("RADIO", true) &&
+                (
+                    selectedGroup == "ALL" ||
+                    channel.group.equals(selectedGroup, true)
+                )
+            }
+        }
+    }
+
     private fun showChannels() {
 
         showingChannels = true
-        listTitle.text = "CHANNELS - $selectedGroup"
+
+        setContentView(root)
+
+        listTitle.text =
+            if (currentSection == "RADIO") {
+                "RADIO CHANNELS"
+            } else {
+                "CHANNELS - $selectedGroup"
+            }
 
         listScroll.removeAllViews()
         listScroll.addView(channelList)
@@ -789,7 +965,13 @@ class MainActivity : AppCompatActivity() {
 
         val backButton = Button(this).apply {
 
-            text = "‹ BACK TO GROUPS"
+            text =
+                if (currentSection == "RADIO") {
+                    "‹ BACK TO HOME"
+                } else {
+                    "‹ BACK TO GROUPS"
+                }
+
             textSize = 14f
             isAllCaps = false
             setTextColor(Color.WHITE)
@@ -801,12 +983,17 @@ class MainActivity : AppCompatActivity() {
                 background = focusBackground(focused)
 
                 if (focused) {
-                    listTitle.text = "BACK TO GROUPS"
+                    listTitle.text = "BACK"
                 }
             }
 
             setOnClickListener {
-                showGroups()
+
+                if (currentSection == "RADIO") {
+                    returnHome()
+                } else {
+                    showGroups()
+                }
             }
         }
 
@@ -818,13 +1005,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        val filtered = if (selectedGroup == "ALL") {
-            channels
-        } else {
-            channels.filter {
-                it.group.equals(selectedGroup, true)
-            }
-        }
+        val filtered = getSectionChannels()
 
         filtered.forEach { channel ->
 
@@ -860,7 +1041,8 @@ class MainActivity : AppCompatActivity() {
                     )
 
                     if (focused) {
-                        listTitle.text = "SELECTED: ${channel.name}"
+                        listTitle.text =
+                            "SELECTED: ${channel.name}"
                     }
                 }
 
@@ -894,6 +1076,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    // ================= PLAY CHANNEL =================
 
     private fun playChannel(index: Int) {
 
@@ -935,7 +1119,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus() {
 
-        if (channels.isNotEmpty()) {
+        if (channels.isNotEmpty() &&
+            currentIndex in channels.indices
+        ) {
 
             status.text =
                 "Playing: ${channels[currentIndex].name} " +
@@ -943,26 +1129,51 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ================= NEXT / PREVIOUS =================
+
     private fun playNext() {
 
-        if (channels.isNotEmpty()) {
-            playChannel((currentIndex + 1) % channels.size)
+        val filtered = getSectionChannels()
+
+        if (filtered.isEmpty()) return
+
+        val currentPosition = filtered.indexOfFirst {
+            channels.indexOf(it) == currentIndex
         }
+
+        val nextPosition =
+            if (currentPosition < 0 ||
+                currentPosition >= filtered.lastIndex
+            ) {
+                0
+            } else {
+                currentPosition + 1
+            }
+
+        playChannel(channels.indexOf(filtered[nextPosition]))
     }
 
     private fun playPrevious() {
 
-        if (channels.isNotEmpty()) {
+        val filtered = getSectionChannels()
 
-            val previous = if (currentIndex == 0) {
-                channels.size - 1
+        if (filtered.isEmpty()) return
+
+        val currentPosition = filtered.indexOfFirst {
+            channels.indexOf(it) == currentIndex
+        }
+
+        val previousPosition =
+            if (currentPosition <= 0) {
+                filtered.lastIndex
             } else {
-                currentIndex - 1
+                currentPosition - 1
             }
 
-            playChannel(previous)
-        }
+        playChannel(channels.indexOf(filtered[previousPosition]))
     }
+
+    // ================= FULLSCREEN =================
 
     private fun toggleFullscreen() {
 
@@ -1028,17 +1239,36 @@ class MainActivity : AppCompatActivity() {
         playerFrame.requestLayout()
     }
 
+    // ================= BACK BUTTON =================
+
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
 
         if (isFullscreen) {
+
             toggleFullscreen()
-        } else if (showingChannels) {
+
+        } else if (currentSection == "RADIO") {
+
+            returnHome()
+
+        } else if (currentSection == "LIVE" &&
+            showingChannels
+        ) {
+
             showGroups()
+
+        } else if (currentSection == "LIVE") {
+
+            returnHome()
+
         } else {
+
             super.onBackPressed()
         }
     }
+
+    // ================= DESTROY =================
 
     override fun onDestroy() {
 
