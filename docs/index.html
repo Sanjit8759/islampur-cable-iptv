@@ -4,6 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>YOUR SHOW - ISLAMPUR CABLE</title>
 
 <style>
@@ -18,6 +19,7 @@ html, body {
     height: 100%;
     overflow: hidden;
     background: #000;
+    font-family: Arial, sans-serif;
 }
 
 #twitch-player {
@@ -30,17 +32,40 @@ html, body {
     z-index: 1;
 }
 
+#play-button {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: 3px solid white;
+    background: rgba(220, 0, 0, 0.90);
+    color: white;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#play-button:focus {
+    outline: 6px solid yellow;
+    outline-offset: 5px;
+    background: #ff6600;
+    transform: translate(-50%, -50%) scale(1.12);
+}
+
 .watermark {
     position: fixed;
     right: 15px;
     bottom: 15px;
     z-index: 10;
     padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.80);
     color: white;
     border-radius: 6px;
     text-align: right;
-    font-family: Arial, sans-serif;
     pointer-events: none;
     text-shadow: 1px 1px 3px black;
 }
@@ -56,6 +81,7 @@ html, body {
     margin-top: 4px;
     font-size: 13px;
 }
+
 </style>
 </head>
 
@@ -63,16 +89,52 @@ html, body {
 
 <iframe
     id="twitch-player"
-    src="https://player.twitch.tv/?channel=sanjit875&parent=sanjit8759.github.io&autoplay=false"
+    src="https://player.twitch.tv/?channel=sanjit875&parent=sanjit8759.github.io&autoplay=true"
     allow="autoplay; fullscreen"
     allowfullscreen
     tabindex="0">
 </iframe>
 
+<button id="play-button" type="button" autofocus>
+    ▶ PLAY
+</button>
+
 <div class="watermark">
     <strong>ISLAMPUR CABLE</strong>
     <span>ইন্টারনেট সংযোগের জন্য যোগাযোগ করুন: 8759411065</span>
 </div>
+
+<script>
+const playButton = document.getElementById("play-button");
+const twitchPlayer = document.getElementById("twitch-player");
+
+playButton.addEventListener("click", function () {
+    twitchPlayer.focus();
+    playButton.style.display = "none";
+});
+
+document.addEventListener("keydown", function(event) {
+
+    if (
+        event.key === "Enter" ||
+        event.key === " " ||
+        event.key === "OK" ||
+        event.keyCode === 23 ||
+        event.keyCode === 66
+    ) {
+        if (document.activeElement === playButton) {
+            event.preventDefault();
+            twitchPlayer.focus();
+            playButton.style.display = "none";
+        }
+    }
+
+});
+
+window.onload = function() {
+    playButton.focus();
+};
+</script>
 
 </body>
 </html>
