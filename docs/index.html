@@ -4,7 +4,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>YOUR SHOW - ISLAMPUR CABLE</title>
 
 <style>
@@ -19,121 +18,144 @@ html, body {
     height: 100%;
     overflow: hidden;
     background: #000;
-    font-family: Arial, sans-serif;
 }
 
-#twitch-player {
+#playerBox {
     position: fixed;
-    top: 0;
-    left: 0;
+    inset: 0;
+    background: #000;
+}
+
+video {
     width: 100%;
     height: 100%;
-    border: none;
-    z-index: 1;
-}
-
-#play-button {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 5;
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    border: 3px solid white;
-    background: rgba(220, 0, 0, 0.90);
-    color: white;
-    font-size: 22px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-#play-button:focus {
-    outline: 6px solid yellow;
-    outline-offset: 5px;
-    background: #ff6600;
-    transform: translate(-50%, -50%) scale(1.12);
+    object-fit: contain;
+    background: #000;
 }
 
 .watermark {
-    position: fixed;
-    right: 15px;
-    bottom: 15px;
-    z-index: 10;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.80);
+    position: absolute;
+    left: 18px;
+    bottom: 55px;
     color: white;
-    border-radius: 6px;
-    text-align: right;
+    font-family: Arial, sans-serif;
+    text-shadow: 2px 2px 5px #000;
     pointer-events: none;
-    text-shadow: 1px 1px 3px black;
+    z-index: 5;
 }
 
-.watermark strong {
-    display: block;
-    font-size: 18px;
-    letter-spacing: 1px;
+.watermark .brand {
+    font-size: 22px;
+    font-weight: bold;
 }
 
-.watermark span {
-    display: block;
-    margin-top: 4px;
-    font-size: 13px;
+.watermark .contact {
+    font-size: 14px;
+    margin-top: 5px;
 }
 
+#status {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    color: white;
+    background: rgba(0,0,0,.65);
+    padding: 8px 12px;
+    font: 14px Arial, sans-serif;
+    z-index: 6;
+    pointer-events: none;
+}
 </style>
 </head>
 
 <body>
 
-<iframe
-    id="twitch-player"
-    src="https://player.twitch.tv/?channel=sanjit875&parent=sanjit8759.github.io&autoplay=true"
-    allow="autoplay; fullscreen"
-    allowfullscreen
-    tabindex="0">
-</iframe>
+<div id="playerBox">
 
-<button id="play-button" type="button" autofocus>
-    ▶ PLAY
-</button>
+    <video
+        id="liveVideo"
+        controls
+        autoplay
+        muted
+        playsinline
+        preload="auto">
+    </video>
 
-<div class="watermark">
-    <strong>ISLAMPUR CABLE</strong>
-    <span>ইন্টারনেট সংযোগের জন্য যোগাযোগ করুন: 8759411065</span>
+    <div class="watermark">
+        <div class="brand">ISLAMPUR CABLE</div>
+        <div class="contact">
+            ইন্টারনেট সংযোগের জন্য যোগাযোগ করুন: 8759411065
+        </div>
+    </div>
+
+    <div id="status">লাইভ ভিডিও লোড হচ্ছে...</div>
+
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
 <script>
-const playButton = document.getElementById("play-button");
-const twitchPlayer = document.getElementById("twitch-player");
+const video = document.getElementById("liveVideo");
+const statusText = document.getElementById("status");
 
-playButton.addEventListener("click", function () {
-    twitchPlayer.focus();
-    playButton.style.display = "none";
-});
+const streamURL =
+    "http://115.187.41.216:8080/hls/samtvislampur/index.m3u8";
 
-document.addEventListener("keydown", function(event) {
+function showStatus(message) {
+    statusText.textContent = message;
+    statusText.style.display = "block";
+}
 
-    if (
-        event.key === "Enter" ||
-        event.key === " " ||
-        event.key === "OK" ||
-        event.keyCode === 23 ||
-        event.keyCode === 66
-    ) {
-        if (document.activeElement === playButton) {
-            event.preventDefault();
-            twitchPlayer.focus();
-            playButton.style.display = "none";
+function hideStatus() {
+    statusText.style.display = "none";
+}
+
+if (video.canPlayType("application/vnd.apple.mpegurl")) {
+
+    video.src = streamURL;
+
+} else if (window.Hls && Hls.isSupported()) {
+
+    const hls = new Hls({
+        liveSyncDurationCount: 3,
+        enableWorker: true
+    });
+
+    hls.loadSource(streamURL);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+        video.play().catch(() => {
+            showStatus("PLAY বোতাম চাপুন");
+        });
+    });
+
+    hls.on(Hls.Events.ERROR, function(event, data) {
+        if (data.fatal) {
+            showStatus("লাইভ স্ট্রিম চালানো যাচ্ছে না");
         }
-    }
+    });
 
+} else {
+
+    showStatus("এই ডিভাইসে HLS সাপোর্ট নেই");
+}
+
+video.addEventListener("playing", hideStatus);
+
+video.addEventListener("waiting", function() {
+    showStatus("ভিডিও লোড হচ্ছে...");
 });
 
-window.onload = function() {
-    playButton.focus();
-};
+video.addEventListener("error", function() {
+    showStatus("ভিডিও চালাতে সমস্যা হচ্ছে");
+});
+
+video.addEventListener("canplay", function() {
+    video.play().catch(() => {
+        showStatus("PLAY বোতাম চাপুন");
+    });
+});
 </script>
 
 </body>
