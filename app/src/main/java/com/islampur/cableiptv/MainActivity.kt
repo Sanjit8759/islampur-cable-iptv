@@ -2,6 +2,8 @@
 package com.islampur.cableiptv
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -16,7 +18,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.*
-import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
 import androidx.media3.common.MediaItem
@@ -36,6 +37,8 @@ class MainActivity : AppCompatActivity() {
     private val playlistUrl = "https://m3u.ch/orKl0V.m3u"
     private val backupPrefs = "IPTV_BACKUP"
     private val backupKey = "saved_playlist"
+    private val favouritePrefs = "IPTV_FAVOURITES"
+    private val favouriteKey = "favourite_channels"
 
     private val twitchPage =
         "https://sanjit8759.github.io/islampur-cable-iptv/"
@@ -48,11 +51,11 @@ class MainActivity : AppCompatActivity() {
 
     private val channels = mutableListOf<Channel>()
     private val groups = mutableListOf<String>()
+    private val favourites = mutableSetOf<String>()
 
     private var currentIndex = 0
     private var selectedGroup = "ALL"
     private var currentSection = "HOME"
-
     private var isFullscreen = false
     private var showingChannels = false
     private var currentFrameMode = "STRETCH"
@@ -60,6 +63,25 @@ class MainActivity : AppCompatActivity() {
 
     private var player: ExoPlayer? = null
     private var twitchWebView: WebView? = null
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var bufferPercent = 100
+
+    private val bufferRunnable = object : Runnable {
+        override fun run() {
+            if (player?.playbackState == Player.STATE_BUFFERING) {
+                if (bufferPercent > 0) {
+                    bufferPercent = (bufferPercent - 5).coerceAtLeast(0)
+                    bufferText.text = "$bufferPercent%\nBUFFERING..."
+                    bufferText.visibility = View.VISIBLE
+                    handler.postDelayed(this, 500)
+                } else {
+                    bufferText.text = "BUFFERING..."
+                    handler.postDelayed(this, 1000)
+                }
+            }
+        }
+    }
 
     private lateinit var homeRoot: LinearLayout
     private lateinit var root: LinearLayout
@@ -75,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var channelTitle: TextView
     private lateinit var watermarkView: View
+    private lateinit var bufferText: TextView
     private lateinit var videoGesture: GestureDetector
 
     private val navy = Color.rgb(12, 20, 38)
@@ -86,6 +109,7 @@ class MainActivity : AppCompatActivity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        loadFavourites()
         createLayout()
         createHomeScreen()
         setupGestures()
@@ -95,7 +119,70 @@ class MainActivity : AppCompatActivity() {
         loadPlaylist()
     }
 
+    // ================= FAVOURITES =================
+
+    private fun loadFavourites() {
+        val saved = getSharedPreferences(
+            favouritePrefs,
+            MODE_PRIVATE
+        ).getStringSet(favouriteKey, emptySet())
+
+        favourites.clear()
+        favourites.addAll(saved ?: emptySet())
+    }
+
+    private fun saveFavourites() {
+        getSharedPreferences(
+            favouritePrefs,
+            MODE_PRIVATE
+        ).edit()
+            .putStringSet(favouriteKey, favourites.toSet())
+            .apply()
+    }
+
+    private fun isFavourite(channel: Channel): Boolean {
+        return favourites.contains(channel.url)
+    }
+
+    private fun toggleFavourite(channel: Channel) {
+        if (isFavourite(channel)) {
+            favourites.remove(channel.url)
+            Toast.makeText(
+                this,
+                "Favourite থেকে সরানো হয়েছে",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            favourites.add(channel.url)
+            Toast.makeText(
+                this,
+                "Favourite-এ যোগ হয়েছে",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        saveFavourites()
+
+        if (currentSection == "LIVE" && showingChannels) {
+            showChannels()
+        }
+    }
+
     // ================= PLAYER =================
+
+    private fun stopBufferDisplay() {
+        handler.removeCallbacks(bufferRunnable)
+        bufferPercent = 100
+        bufferText.visibility = View.GONE
+    }
+
+    private fun startBufferDisplay() {
+        handler.removeCallbacks(bufferRunnable)
+        bufferPercent = 100
+        bufferText.text = "100%\nBUFFERING..."
+        bufferText.visibility = View.VISIBLE
+        handler.postDelayed(bufferRunnable, 500)
+    }
 
     private fun createPlayer() {
 
@@ -123,6 +210,7 @@ class MainActivity : AppCompatActivity() {
         player?.addListener(object : Player.Listener {
 
             override fun onPlayerError(error: PlaybackException) {
+                stopBufferDisplay()
 
                 Log.e(
                     "ISLAMPUR_IPTV",
@@ -159,15 +247,22 @@ class MainActivity : AppCompatActivity() {
                 when (state) {
                     Player.STATE_BUFFERING -> {
                         status.text = "Buffering..."
+                        startBufferDisplay()
                     }
 
                     Player.STATE_READY -> {
+                        stopBufferDisplay()
                         autoPlayAttempts = 0
                         updateStatus()
                     }
 
                     Player.STATE_ENDED -> {
+                        stopBufferDisplay()
                         status.text = "Stream Ended"
+                    }
+
+                    Player.STATE_IDLE -> {
+                        stopBufferDisplay()
                     }
                 }
             }
@@ -302,8 +397,6 @@ class MainActivity : AppCompatActivity() {
             openYourShow()
         }
 
-        // SETTINGS ONLY ON HOME PAGE
-
         val homeSettings = makeButton("⚙ SETTINGS") {
             showFrameSettings()
         }
@@ -349,7 +442,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             setOnFocusChangeListener { view, focused ->
-
                 view.scaleX = if (focused) 1.03f else 1f
                 view.scaleY = if (focused) 1.03f else 1f
 
@@ -402,6 +494,7 @@ class MainActivity : AppCompatActivity() {
         showingChannels = false
 
         player?.pause()
+        stopBufferDisplay()
 
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -416,11 +509,11 @@ class MainActivity : AppCompatActivity() {
         status.visibility = View.GONE
         playerView.visibility = View.GONE
         watermarkView.visibility = View.GONE
+        bufferText.visibility = View.GONE
 
         playerFrame.visibility = View.VISIBLE
 
         if (twitchWebView == null) {
-
             twitchWebView = WebView(this).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
@@ -430,7 +523,6 @@ class MainActivity : AppCompatActivity() {
 
                 webViewClient = WebViewClient()
                 webChromeClient = WebChromeClient()
-
                 setBackgroundColor(Color.BLACK)
             }
         }
@@ -486,10 +578,11 @@ class MainActivity : AppCompatActivity() {
         isFullscreen = false
         autoPlayAttempts = 0
 
-        // No SETTINGS in player screen
         header.visibility = View.VISIBLE
         channelTitle.visibility = View.VISIBLE
         status.visibility = View.VISIBLE
+        playerView.visibility = View.VISIBLE
+        watermarkView.visibility = View.VISIBLE
 
         setContentView(root)
 
@@ -536,6 +629,7 @@ class MainActivity : AppCompatActivity() {
         isFullscreen = false
         currentSection = "HOME"
         showingChannels = false
+        stopBufferDisplay()
 
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
@@ -614,8 +708,6 @@ class MainActivity : AppCompatActivity() {
 
         channelTitle = makeLabel("LIVE TV PLAYER", 18f, Color.WHITE)
 
-        // HEADER SETTINGS BUTTON REMOVED
-
         header.addView(
             channelTitle,
             LinearLayout.LayoutParams(
@@ -660,11 +752,36 @@ class MainActivity : AppCompatActivity() {
                 )
             )
 
-            val watermark = LinearLayout(this@MainActivity).apply {
+            // BUFFERING PERCENTAGE DISPLAY
 
+            bufferText = TextView(this@MainActivity).apply {
+                text = "100%\nBUFFERING..."
+                textSize = 27f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                setTypeface(null, Typeface.BOLD)
+                setShadowLayer(dp(5).toFloat(), 2f, 2f, Color.BLACK)
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(170, 0, 0, 0))
+                    cornerRadius = dp(12).toFloat()
+                    setStroke(dp(2), Color.WHITE)
+                }
+                setPadding(dp(25), dp(15), dp(25), dp(15))
+                visibility = View.GONE
+            }
+
+            addView(
+                bufferText,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER
+                )
+            )
+
+            val watermark = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.END
-
                 setPadding(dp(5), dp(3), dp(55), dp(10))
 
                 addView(TextView(this@MainActivity).apply {
@@ -698,8 +815,6 @@ class MainActivity : AppCompatActivity() {
                     Gravity.BOTTOM
                 )
             )
-
-            // VIDEO SETTINGS BUTTON REMOVED
         }
 
         rightPanel.addView(
@@ -931,7 +1046,6 @@ class MainActivity : AppCompatActivity() {
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0")
 
                 try {
-
                     connection.connect()
 
                     if (connection.responseCode !in 200..299) {
@@ -996,6 +1110,9 @@ class MainActivity : AppCompatActivity() {
                     .sorted()
                     .forEach { groups.add(it) }
 
+                // FAVOURITES GROUP
+                groups.add("FAVOURITES")
+
                 currentIndex = 0
                 selectedGroup = "ALL"
                 showingChannels = false
@@ -1042,7 +1159,12 @@ class MainActivity : AppCompatActivity() {
 
             val button = Button(this).apply {
 
-                text = group.uppercase()
+                text = if (group == "FAVOURITES") {
+                    "⭐ FAVOURITES"
+                } else {
+                    group.uppercase()
+                }
+
                 textSize = 16f
                 isAllCaps = false
                 setTextColor(Color.WHITE)
@@ -1090,6 +1212,11 @@ class MainActivity : AppCompatActivity() {
             channels.filter {
                 it.group.equals("RADIO", true)
             }
+        } else if (selectedGroup == "FAVOURITES") {
+            channels.filter {
+                !it.group.equals("RADIO", true) &&
+                isFavourite(it)
+            }
         } else {
             channels.filter { channel ->
                 !channel.group.equals("RADIO", true) &&
@@ -1111,6 +1238,8 @@ class MainActivity : AppCompatActivity() {
         listTitle.text =
             if (currentSection == "RADIO") {
                 "RADIO CHANNELS"
+            } else if (selectedGroup == "FAVOURITES") {
+                "⭐ FAVOURITE CHANNELS"
             } else {
                 "CHANNELS - $selectedGroup"
             }
@@ -1157,11 +1286,26 @@ class MainActivity : AppCompatActivity() {
 
         val filtered = getSectionChannels()
 
+        if (filtered.isEmpty() && selectedGroup == "FAVOURITES") {
+            channelList.addView(
+                makeLabel("কোনও Favourite Channel নেই", 16f, Color.YELLOW),
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(70)
+                )
+            )
+        }
+
         filtered.forEach { channel ->
 
             val index = channels.indexOf(channel)
 
-            val button = Button(this).apply {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            val channelButton = Button(this).apply {
 
                 text = channel.name
                 textSize = 14f
@@ -1198,18 +1342,56 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
+            val starButton = Button(this).apply {
+
+                text = if (isFavourite(channel)) "⭐" else "☆"
+                textSize = 20f
+                isAllCaps = false
+                setTextColor(Color.YELLOW)
+                isFocusable = true
+                contentDescription = "Favourite ${channel.name}"
+                setPadding(0, 0, 0, 0)
+
+                background = GradientDrawable().apply {
+                    setColor(Color.rgb(38, 57, 78))
+                    cornerRadius = dp(7).toFloat()
+                }
+
+                setOnClickListener {
+                    toggleFavourite(channel)
+                }
+            }
+
+            row.addView(
+                channelButton,
+                LinearLayout.LayoutParams(
+                    0,
+                    dp(58),
+                    1f
+                )
+            )
+
+            val starParams = LinearLayout.LayoutParams(
+                dp(55),
                 dp(58)
             )
 
+            starParams.setMargins(dp(3), 0, 0, 0)
+            row.addView(starButton, starParams)
+
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(62)
+            )
+
             params.setMargins(dp(3), dp(3), dp(3), dp(3))
-            channelList.addView(button, params)
+            channelList.addView(row, params)
         }
 
         channelList.post {
             if (channelList.childCount > 1) {
-                channelList.getChildAt(1).requestFocus()
+                val firstRow = channelList.getChildAt(1) as? LinearLayout
+                firstRow?.getChildAt(0)?.requestFocus()
             } else {
                 backButton.requestFocus()
             }
@@ -1229,6 +1411,8 @@ class MainActivity : AppCompatActivity() {
 
         channelTitle.text = channel.name
         status.text = "Loading: ${channel.name}"
+
+        stopBufferDisplay()
 
         try {
             player?.stop()
@@ -1382,6 +1566,8 @@ class MainActivity : AppCompatActivity() {
     // ================= DESTROY =================
 
     override fun onDestroy() {
+
+        handler.removeCallbacks(bufferRunnable)
 
         twitchWebView?.let { web ->
             web.stopLoading()
